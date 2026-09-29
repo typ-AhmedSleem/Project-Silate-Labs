@@ -108,6 +108,11 @@ async function bootstrap() {
 
       currentAvatarController = avatarController;
 
+      // Wire channel state updates to debug panel
+      avatarController.onChannelChange((channels) => {
+        ui.debugPanel.updateChannels(channels);
+      });
+
       // Initialize Resolver and Executor
       currentResolver = new MotionResolver(skeletonController, (msg, type) => {
         ui.debugPanel.log(msg, type || 'info');

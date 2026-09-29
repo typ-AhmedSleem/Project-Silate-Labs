@@ -228,6 +228,41 @@ export class DebugPanel {
     });
   }
 
+  public updateChannels(channels: Record<string, string>): void {
+    const keys = ['body', 'head', 'leftArm', 'rightArm', 'leftHand', 'rightHand', 'fingers', 'face', 'lips'];
+    let activeCount = 0;
+
+    for (const key of keys) {
+      const state = channels[key] || 'Idle';
+      const el = document.getElementById(`ch-${key}`);
+      const chip = document.querySelector(`.channel-chip[data-channel="${key}"]`);
+
+      if (el) {
+        el.textContent = state;
+        if (state !== 'Idle') {
+          el.className = 'channel-state active';
+          activeCount++;
+        } else {
+          el.className = 'channel-state';
+        }
+      }
+
+      if (chip) {
+        if (state !== 'Idle') {
+          chip.classList.add('active');
+        } else {
+          chip.classList.remove('active');
+        }
+      }
+    }
+
+    const badge = document.getElementById('active-channels-count');
+    if (badge) {
+      badge.textContent = activeCount > 0 ? `${activeCount} Active` : '9 Channels';
+      badge.style.color = activeCount > 0 ? 'var(--accent-cyan)' : 'inherit';
+    }
+  }
+
   public toggle(forceCollapse?: boolean): void {
     if (forceCollapse !== undefined) {
       this.isCollapsed = forceCollapse;
