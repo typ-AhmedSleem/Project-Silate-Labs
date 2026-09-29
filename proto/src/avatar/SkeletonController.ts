@@ -141,4 +141,95 @@ export class SkeletonController {
       spine2: this.getBone('Spine2')
     };
   }
+
+  /**
+   * Retrieves all finger bones for a given side ('left' or 'right').
+   */
+  public getFingerBones(side: 'left' | 'right'): THREE.Bone[] {
+    const prefix = side === 'left' ? 'LeftHand' : 'RightHand';
+    const fingerNames = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
+    const bones: THREE.Bone[] = [];
+
+    for (const f of fingerNames) {
+      for (let j = 1; j <= 4; j++) {
+        const bone = this.getBone(`${prefix}${f}${j}`);
+        if (bone) {
+          bones.push(bone);
+        }
+      }
+    }
+    return bones;
+  }
+
+  /**
+   * Returns rotation targets for standard named hand poses:
+   * 'open', 'closed', 'point', 'thumb_up', 'peace'
+   */
+  public getHandPoseInstructions(
+    side: 'left' | 'right',
+    pose: 'open' | 'closed' | 'point' | 'thumb_up' | 'peace'
+  ): Array<{ bone: string; rotation: { x: number; y: number; z: number; isDegrees: boolean } | THREE.Quaternion }> {
+    const prefix = side === 'left' ? 'LeftHand' : 'RightHand';
+    const targets: Array<{ bone: string; rotation: { x: number; y: number; z: number; isDegrees: boolean } | THREE.Quaternion }> = [];
+    const fingerNames = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
+
+    // 1. Open Pose: return all finger bones to rest/original rotations
+    if (pose === 'open') {
+      const bones = this.getFingerBones(side);
+      for (const bone of bones) {
+        const rest = this.originalRotations.get(bone.name) || bone.quaternion;
+        targets.push({ bone: bone.name, rotation: rest.clone() });
+      }
+      return targets;
+    }
+
+    // 2. Formulated Poses (closed, point, thumb_up, peace)
+    const isCurled = (finger: string): boolean => {
+      switch (pose) {
+        case 'closed':
+          return true;
+        case 'point':
+          return finger !== 'Index';
+        case 'thumb_up':
+          return finger !== 'Thumb';
+        case 'peace':
+          return finger !== 'Index' && finger !== 'Middle';
+        default:
+          return false;
+      }
+    };
+
+    for (const finger of fingerNames) {
+      const curl = isCurled(finger);
+
+      for (let j = 1; j <= 4; j++) {
+        const boneName = `${prefix}${finger}${j}`;
+        const bone = this.getBone(boneName);
+        if (!bone) continue;
+
+        if (curl) {
+          if (finger === 'Thumb') {
+            // Thumb curled inward
+            targets.push({
+              bone: bone.name,
+              rotation: { x: -15, y: side === 'right' ? 15 : -15, z: side === 'right' ? -35 : 35, isDegrees: true }
+            });
+          } else {
+            // Main finger curled at joints 1, 2, 3
+            const angleX = j === 1 ? 65 : j === 2 ? 75 : 60;
+            targets.push({
+              bone: bone.name,
+              rotation: { x: angleX, y: 0, z: 0, isDegrees: true }
+            });
+          }
+        } else {
+          // Extended / straight (rest rotation)
+          const rest = this.originalRotations.get(bone.name) || bone.quaternion;
+          targets.push({ bone: bone.name, rotation: rest.clone() });
+        }
+      }
+    }
+
+    return targets;
+  }
 }
