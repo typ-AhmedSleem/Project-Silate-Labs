@@ -3,6 +3,7 @@ import { AvatarController } from '../avatar/AvatarController.js';
 import { appState } from '../state/AppState.js';
 
 export interface MotionExecutorCallbacks {
+  onMotionStart?: (motionId: string) => void;
   onStepStart?: (stepInfo: FlattenedSequenceStep, totalSteps: number, currentStepNumber: number) => void;
   onStepEnd?: (stepInfo: FlattenedSequenceStep) => void;
   onComplete?: () => void;
@@ -33,8 +34,13 @@ export class MotionExecutor {
       return false;
     }
 
-    // Interrupt any previous running sequence
-    this.stop();
+    // 4.5: Immediate interruption handling: stop current, blend to neutral fast, no queueing
+    if (this.isRunning) {
+      this.callbacks.onLog?.('[MotionExecutor] ⚡ Interrupted active playback for new sequence.', 'warn');
+      this.isRunning = false;
+      this.currentExecutionId++;
+      await this.controller.returnToNeutral(150);
+    }
 
     this.isRunning = true;
     this.isPaused = false;
@@ -43,6 +49,7 @@ export class MotionExecutor {
     appState.setState('PLAYING');
     const steps = sequence.getFlattenedSteps();
     const totalSteps = steps.length;
+    let currentMotionId: string | null = null;
 
     this.callbacks.onLog?.(
       `[MotionExecutor] Executing sequence "${sequence.id}" (${totalSteps} steps)`,
@@ -63,6 +70,13 @@ export class MotionExecutor {
         }
 
         const stepInfo = steps[i];
+
+        // Notify motion start if word changed
+        if (stepInfo.motionId !== currentMotionId) {
+          currentMotionId = stepInfo.motionId;
+          this.callbacks.onMotionStart?.(currentMotionId);
+        }
+
         this.callbacks.onStepStart?.(stepInfo, totalSteps, i + 1);
         this.callbacks.onLog?.(
           `[MotionExecutor] Step ${i + 1}/${totalSteps} (${stepInfo.motionId}): ${stepInfo.step.description}`,
@@ -100,7 +114,7 @@ export class MotionExecutor {
       this.isRunning = false;
       this.isPaused = false;
       this.currentExecutionId++;
-      this.controller.returnToNeutral(200);
+      this.controller.returnToNeutral(180);
       appState.setState('IDLE');
     }
   }
