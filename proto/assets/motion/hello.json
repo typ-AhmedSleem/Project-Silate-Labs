@@ -1,0 +1,25 @@
+{
+  "id": "hello",
+  "version": 1,
+  "durationMs": 1400,
+  "timeline": [
+    {
+      "atMs": 0,
+      "type": "gesture",
+      "name": "raise_right_hand",
+      "durationMs": 350
+    },
+    {
+      "atMs": 350,
+      "type": "gesture",
+      "name": "wave_right_hand",
+      "durationMs": 700
+    },
+    {
+      "atMs": 1050,
+      "type": "gesture",
+      "name": "return_neutral",
+      "durationMs": 350
+    }
+  ]
+}
