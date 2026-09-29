@@ -30,6 +30,7 @@ export class Avatar {
   private activeClipName: string | null = null;
   private isProceduralIdle: boolean = false;
   private proceduralIdleTime: number = 0;
+  private idleEnabled: boolean = true;
 
   // Track initial rotations for procedural idle to avoid drifting
   private baseRotations: Map<string, THREE.Euler> = new Map();
@@ -219,18 +220,42 @@ export class Avatar {
     return this.activeClipName;
   }
 
+  public setIdleEnabled(enabled: boolean): void {
+    this.idleEnabled = enabled;
+
+    if (this.activeAction) {
+      this.activeAction.paused = !enabled;
+    }
+
+    if (!enabled) {
+      // Reset bones to base rotations so avatar stands completely still with no movement
+      for (const [boneName, baseRot] of this.baseRotations.entries()) {
+        const bone = this.getBone(boneName);
+        if (bone) {
+          bone.rotation.copy(baseRot);
+        }
+      }
+    }
+  }
+
+  public isIdleEnabled(): boolean {
+    return this.idleEnabled;
+  }
+
   public setMorphTarget(name: string, value: number): void {
     // Facial morphs are deferred per specification
     this.facialController.setMorph(name, value);
   }
 
   public update(delta: number): void {
-    if (this.mixer) {
-      this.mixer.update(delta);
-    }
+    if (this.idleEnabled) {
+      if (this.mixer) {
+        this.mixer.update(delta);
+      }
 
-    if (this.isProceduralIdle) {
-      this.updateProceduralIdle(delta);
+      if (this.isProceduralIdle) {
+        this.updateProceduralIdle(delta);
+      }
     }
   }
 
