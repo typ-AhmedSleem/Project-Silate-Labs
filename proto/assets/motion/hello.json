@@ -1,25 +1,66 @@
 {
   "id": "hello",
-  "version": 1,
-  "durationMs": 1400,
-  "timeline": [
-    {
-      "atMs": 0,
-      "type": "gesture",
-      "name": "raise_right_hand",
-      "durationMs": 350
-    },
-    {
-      "atMs": 350,
-      "type": "gesture",
-      "name": "wave_right_hand",
-      "durationMs": 700
-    },
-    {
-      "atMs": 1050,
-      "type": "gesture",
-      "name": "return_neutral",
-      "durationMs": 350
-    }
-  ]
+  "version": 2,
+  "durationMs": 1300,
+  "channels": {
+    "rightArm": [
+      {
+        "type": "rotateBone",
+        "bone": "RightArm",
+        "rotation": { "x": -40, "y": -15, "z": -65, "isDegrees": true },
+        "durationMs": 350
+      },
+      {
+        "type": "gesture",
+        "name": "wave_right_hand",
+        "durationMs": 600
+      },
+      {
+        "type": "gesture",
+        "name": "return_neutral",
+        "durationMs": 350
+      }
+    ],
+    "fingers": [
+      {
+        "type": "pose",
+        "name": "open",
+        "durationMs": 350
+      }
+    ],
+    "head": [
+      {
+        "type": "rotateBone",
+        "bone": "Head",
+        "rotation": { "x": -4, "y": 12, "z": 6, "isDegrees": true },
+        "durationMs": 350
+      },
+      {
+        "type": "delay",
+        "durationMs": 500
+      },
+      {
+        "type": "rotateBone",
+        "bone": "Head",
+        "rotation": { "x": 0, "y": 0, "z": 0, "isDegrees": true },
+        "durationMs": 350
+      }
+    ],
+    "face": [
+      {
+        "type": "morph",
+        "target": "smile",
+        "value": 0.8,
+        "durationMs": 300
+      }
+    ],
+    "lips": [
+      {
+        "type": "morph",
+        "target": "viseme_aa",
+        "value": 0.7,
+        "durationMs": 300
+      }
+    ]
+  }
 }

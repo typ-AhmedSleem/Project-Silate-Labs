@@ -1,19 +1,74 @@
 {
   "id": "welcome",
-  "version": 1,
+  "version": 2,
   "durationMs": 1400,
-  "timeline": [
-    {
-      "atMs": 0,
-      "type": "gesture",
-      "name": "gesture_welcome",
-      "durationMs": 900
-    },
-    {
-      "atMs": 900,
-      "type": "gesture",
-      "name": "return_neutral",
-      "durationMs": 500
-    }
-  ]
+  "channels": {
+    "body": [
+      {
+        "type": "rotateBone",
+        "bone": "Spine2",
+        "rotation": { "x": -8, "y": 0, "z": 0, "isDegrees": true },
+        "durationMs": 400
+      },
+      {
+        "type": "delay",
+        "durationMs": 600
+      },
+      {
+        "type": "rotateBone",
+        "bone": "Spine2",
+        "rotation": { "x": 0, "y": 0, "z": 0, "isDegrees": true },
+        "durationMs": 400
+      }
+    ],
+    "rightArm": [
+      {
+        "type": "rotateBone",
+        "bone": "RightArm",
+        "rotation": { "x": -25, "y": 35, "z": -55, "isDegrees": true },
+        "durationMs": 400
+      },
+      {
+        "type": "delay",
+        "durationMs": 600
+      },
+      {
+        "type": "gesture",
+        "name": "return_neutral",
+        "durationMs": 400
+      }
+    ],
+    "leftArm": [
+      {
+        "type": "rotateBone",
+        "bone": "LeftArm",
+        "rotation": { "x": -25, "y": -35, "z": 55, "isDegrees": true },
+        "durationMs": 400
+      },
+      {
+        "type": "delay",
+        "durationMs": 600
+      },
+      {
+        "type": "gesture",
+        "name": "return_neutral",
+        "durationMs": 400
+      }
+    ],
+    "fingers": [
+      {
+        "type": "pose",
+        "name": "open",
+        "durationMs": 350
+      }
+    ],
+    "face": [
+      {
+        "type": "morph",
+        "target": "welcome_smile",
+        "value": 0.9,
+        "durationMs": 400
+      }
+    ]
+  }
 }

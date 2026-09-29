@@ -1,19 +1,42 @@
 {
   "id": "thank",
-  "version": 1,
-  "durationMs": 1200,
-  "timeline": [
-    {
-      "atMs": 0,
-      "type": "gesture",
-      "name": "gesture_thank",
-      "durationMs": 850
-    },
-    {
-      "atMs": 850,
-      "type": "gesture",
-      "name": "return_neutral",
-      "durationMs": 350
-    }
-  ]
+  "version": 2,
+  "durationMs": 1300,
+  "channels": {
+    "rightArm": [
+      {
+        "type": "gesture",
+        "name": "gesture_thank",
+        "durationMs": 950
+      },
+      {
+        "type": "gesture",
+        "name": "return_neutral",
+        "durationMs": 350
+      }
+    ],
+    "fingers": [
+      {
+        "type": "pose",
+        "name": "open",
+        "durationMs": 350
+      }
+    ],
+    "head": [
+      {
+        "type": "rotateBone",
+        "bone": "Head",
+        "rotation": { "x": 10, "y": 0, "z": 0, "isDegrees": true },
+        "durationMs": 300
+      }
+    ],
+    "face": [
+      {
+        "type": "morph",
+        "target": "gratitude_smile",
+        "value": 0.85,
+        "durationMs": 300
+      }
+    ]
+  }
 }
