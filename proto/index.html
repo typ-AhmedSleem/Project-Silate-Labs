@@ -96,6 +96,48 @@
             </div>
           </section>
 
+          <!-- Animation Playback Speed -->
+          <section class="debug-section">
+            <div class="section-title">
+              Animation Speed
+              <span class="badge" id="speed-value">1.0×</span>
+            </div>
+            <div class="speed-slider-container">
+              <input
+                type="range"
+                id="speed-slider"
+                min="0.1"
+                max="3.0"
+                step="0.1"
+                value="1.0"
+                class="slider"
+              />
+              <div class="slider-marks">
+                <span>0.1×</span>
+                <span>1.0×</span>
+                <span>2.0×</span>
+                <span>3.0×</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Gesture Triggers (Phase 2) -->
+          <section class="debug-section">
+            <div class="section-title">
+              Gesture Library
+              <span class="badge" id="active-gesture-badge">Idle</span>
+            </div>
+            <div class="gesture-buttons-grid">
+              <button class="btn btn-secondary btn-gesture" data-gesture="return_neutral">Idle / Neutral</button>
+              <button class="btn btn-secondary btn-gesture" data-gesture="raise_right_hand">Raise Right Arm</button>
+              <button class="btn btn-secondary btn-gesture" data-gesture="wave_right_hand">Wave</button>
+              <button class="btn btn-secondary btn-gesture" data-gesture="nod">Nod</button>
+              <button class="btn btn-secondary btn-gesture" data-gesture="shake_head">Shake Head</button>
+              <button class="btn btn-secondary btn-gesture" data-gesture="thumbs_up">Thumbs Up</button>
+              <button class="btn btn-secondary btn-gesture" data-gesture="point_right">Point</button>
+            </div>
+          </section>
+
           <!-- Animation Clips List -->
           <section class="debug-section">
             <div class="section-title">

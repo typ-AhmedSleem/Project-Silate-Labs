@@ -18,8 +18,14 @@ export class DebugPanel {
   private logConsoleEl: HTMLElement | null;
   private clearLogsBtn: HTMLElement | null;
   private toggleSkeletonBtn: HTMLElement | null;
+  private speedSliderEl: HTMLInputElement | null;
+  private speedValueEl: HTMLElement | null;
+  private activeGestureBadgeEl: HTMLElement | null;
+  private gestureButtons: NodeListOf<HTMLButtonElement>;
 
   private isCollapsed: boolean = false;
+  private onSpeedChangeCallback?: (speed: number) => void;
+  private onGestureTriggerCallback?: (gesture: string) => void;
 
   constructor() {
     this.panel = document.getElementById('debug-panel') as HTMLElement;
@@ -39,6 +45,10 @@ export class DebugPanel {
     this.logConsoleEl = document.getElementById('debug-logs');
     this.clearLogsBtn = document.getElementById('clear-logs-btn');
     this.toggleSkeletonBtn = document.getElementById('toggle-skeleton-btn');
+    this.speedSliderEl = document.getElementById('speed-slider') as HTMLInputElement;
+    this.speedValueEl = document.getElementById('speed-value');
+    this.activeGestureBadgeEl = document.getElementById('active-gesture-badge');
+    this.gestureButtons = document.querySelectorAll('.btn-gesture');
 
     this.initEvents();
   }
@@ -53,6 +63,49 @@ export class DebugPanel {
       if (!details || details.length === 0) return;
       const allOpen = Array.from(details).every((d) => d.open);
       details.forEach((d) => (d.open = !allOpen));
+    });
+
+    // Speed slider listener
+    this.speedSliderEl?.addEventListener('input', () => {
+      const val = parseFloat(this.speedSliderEl?.value || '1.0');
+      if (this.speedValueEl) {
+        this.speedValueEl.textContent = `${val.toFixed(1)}×`;
+      }
+      if (this.onSpeedChangeCallback) {
+        this.onSpeedChangeCallback(val);
+      }
+    });
+
+    // Gesture buttons listeners
+    this.gestureButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const gesture = btn.getAttribute('data-gesture');
+        if (gesture && this.onGestureTriggerCallback) {
+          this.onGestureTriggerCallback(gesture);
+        }
+      });
+    });
+  }
+
+  public onSpeedChange(callback: (speed: number) => void): void {
+    this.onSpeedChangeCallback = callback;
+  }
+
+  public onGestureTrigger(callback: (gesture: string) => void): void {
+    this.onGestureTriggerCallback = callback;
+  }
+
+  public setActiveGesture(name: string): void {
+    if (this.activeGestureBadgeEl) {
+      this.activeGestureBadgeEl.textContent = name;
+    }
+
+    this.gestureButtons.forEach((btn) => {
+      if (btn.getAttribute('data-gesture') === name) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
     });
   }
 
