@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Silate — 3D Motion Translation Prototype</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- 3D Viewport -->
+      <main id="viewport-container">
+        <canvas id="webgl-canvas"></canvas>
+
+        <!-- Viewport Overlay Message (e.g. Model missing notification) -->
+        <div id="viewport-overlay" class="hidden">
+          <div class="overlay-card">
+            <div class="overlay-icon">🤖</div>
+            <h3 id="overlay-title">Waiting for Avatar Model</h3>
+            <p id="overlay-message">
+              Place your Mixamo <code>.glb</code> file at:
+              <br />
+              <code class="path-badge">assets/model/humanoid.glb</code>
+            </p>
+            <button id="retry-load-btn" class="btn btn-secondary">Retry Loading</button>
+          </div>
+        </div>
+
+        <!-- Camera / Scene Quick Hint -->
+        <div id="viewport-hint">
+          <span>Left click + drag to rotate • Right click to pan • Scroll to zoom</span>
+        </div>
+      </main>
+
+      <!-- Bottom Control Bar -->
+      <footer id="control-bar">
+        <div class="input-container">
+          <input
+            type="text"
+            id="phrase-input"
+            placeholder="Type a phrase (e.g., hello how are you)..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="translate-btn" class="btn btn-primary" title="Phase 3: Text to Motion">
+            <span>Translate</span>
+          </button>
+        </div>
+        <div class="status-bar">
+          <span class="status-indicator" id="status-badge">
+            <span class="status-dot"></span>
+            <span id="status-text">Initializing...</span>
+          </span>
+          <button id="debug-toggle-btn" class="btn btn-ghost" title="Toggle Debug Panel">
+            ⚙️ Debug Inspector
+          </button>
+        </div>
+      </footer>
+
+      <!-- Collapsible Side Debug Panel -->
+      <aside id="debug-panel" class="debug-panel">
+        <div class="debug-header">
+          <h2>Debug Inspector</h2>
+          <button id="debug-close-btn" class="icon-btn" title="Close Debug Panel">✕</button>
+        </div>
+
+        <div class="debug-content">
+          <!-- App & Model Status -->
+          <section class="debug-section">
+            <div class="section-title">Model Overview</div>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <span class="stat-label">Model:</span>
+                <span class="stat-value" id="debug-model-status">Loading...</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Bones:</span>
+                <span class="stat-value" id="debug-bones-count">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Animations:</span>
+                <span class="stat-value" id="debug-clips-count">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Morph Targets:</span>
+                <span class="stat-value" id="debug-morphs-count">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Active Clip:</span>
+                <span class="stat-value" id="debug-active-clip">None</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">State:</span>
+                <span class="stat-value highlight" id="debug-app-state">LOADING</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Animation Clips List -->
+          <section class="debug-section">
+            <div class="section-title">
+              Animation Clips
+              <span class="badge" id="clips-badge">0</span>
+            </div>
+            <ul id="debug-clips-list" class="debug-list">
+              <li class="empty-hint">No animation clips detected</li>
+            </ul>
+          </section>
+
+          <!-- Skeleton Tree -->
+          <section class="debug-section">
+            <div class="section-title">
+              Skeleton Hierarchy
+              <button id="toggle-skeleton-btn" class="btn-small">Toggle All</button>
+            </div>
+            <div id="debug-skeleton-tree" class="skeleton-tree">
+              <div class="empty-hint">Waiting for skeleton data...</div>
+            </div>
+          </section>
+
+          <!-- Morph Targets List -->
+          <section class="debug-section">
+            <div class="section-title">
+              Morph Targets (Deferred)
+              <span class="badge" id="morphs-badge">0</span>
+            </div>
+            <ul id="debug-morphs-list" class="debug-list">
+              <li class="empty-hint">No morph targets</li>
+            </ul>
+          </section>
+
+          <!-- Realtime Logs -->
+          <section class="debug-section flex-grow">
+            <div class="section-title">
+              System & Action Logs
+              <button id="clear-logs-btn" class="btn-small">Clear</button>
+            </div>
+            <div id="debug-logs" class="log-console"></div>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
