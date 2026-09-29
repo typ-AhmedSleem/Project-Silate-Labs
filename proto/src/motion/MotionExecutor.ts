@@ -2,14 +2,30 @@ import { MotionSequence, FlattenedSequenceStep } from './MotionSequence.js';
 import { AvatarController } from '../avatar/AvatarController.js';
 import { appState } from '../state/AppState.js';
 
+export interface MotionProgressInfo {
+  elapsedMs: number;
+  totalDurationMs: number;
+  currentStep: number;
+  totalSteps: number;
+  motionId: string;
+  stepDescription: string;
+}
+
 export interface MotionExecutorCallbacks {
   onMotionStart?: (motionId: string) => void;
   onStepStart?: (stepInfo: FlattenedSequenceStep, totalSteps: number, currentStepNumber: number) => void;
   onStepEnd?: (stepInfo: FlattenedSequenceStep) => void;
+  onProgress?: (progress: MotionProgressInfo) => void;
+  onStateChange?: (state: 'playing' | 'paused' | 'stopped' | 'completed') => void;
   onComplete?: () => void;
   onLog?: (msg: string, type?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
+/**
+ * MotionExecutor
+ * Frame-driven execution engine for sequential and blended MotionSequence execution.
+ * Handles lifecycle events, pause/resume, cancellation, step advancement, and progress reporting.
+ */
 export class MotionExecutor {
   private controller: AvatarController;
   private isRunning: boolean = false;
@@ -24,10 +40,18 @@ export class MotionExecutor {
     }
   }
 
+  /**
+   * Sets or updates executor event callbacks.
+   */
   public setCallbacks(callbacks: MotionExecutorCallbacks): void {
     this.callbacks = { ...this.callbacks, ...callbacks };
   }
 
+  /**
+   * Executes a MotionSequence step by step with immediate interruption handling.
+   * @param sequence The composed MotionSequence to execute.
+   * @returns Promise resolving to true if completed successfully, or false if cancelled/interrupted.
+   */
   public async execute(sequence: MotionSequence): Promise<boolean> {
     if (sequence.isEmpty()) {
       this.callbacks.onLog?.('[MotionExecutor] Sequence is empty, nothing to execute.', 'warn');
@@ -47,12 +71,16 @@ export class MotionExecutor {
     const executionId = ++this.currentExecutionId;
 
     appState.setState('PLAYING');
+    this.callbacks.onStateChange?.('playing');
+
     const steps = sequence.getFlattenedSteps();
     const totalSteps = steps.length;
+    const totalDurationMs = sequence.getTotalDuration();
     let currentMotionId: string | null = null;
+    let accumulatedElapsedMs = 0;
 
     this.callbacks.onLog?.(
-      `[MotionExecutor] Executing sequence "${sequence.id}" (${totalSteps} steps)`,
+      `[MotionExecutor] Executing sequence "${sequence.id}" (${totalSteps} steps, ${totalDurationMs}ms)`,
       'info'
     );
 
@@ -78,6 +106,15 @@ export class MotionExecutor {
         }
 
         this.callbacks.onStepStart?.(stepInfo, totalSteps, i + 1);
+        this.callbacks.onProgress?.({
+          elapsedMs: accumulatedElapsedMs,
+          totalDurationMs,
+          currentStep: i + 1,
+          totalSteps,
+          motionId: stepInfo.motionId,
+          stepDescription: stepInfo.step.description
+        });
+
         this.callbacks.onLog?.(
           `[MotionExecutor] Step ${i + 1}/${totalSteps} (${stepInfo.motionId}): ${stepInfo.step.description}`,
           'info'
@@ -86,7 +123,17 @@ export class MotionExecutor {
         // Execute step action
         await stepInfo.step.action(this.controller);
 
+        accumulatedElapsedMs += stepInfo.step.durationMs;
+
         this.callbacks.onStepEnd?.(stepInfo);
+        this.callbacks.onProgress?.({
+          elapsedMs: Math.min(accumulatedElapsedMs, totalDurationMs),
+          totalDurationMs,
+          currentStep: i + 1,
+          totalSteps,
+          motionId: stepInfo.motionId,
+          stepDescription: stepInfo.step.description
+        });
       }
 
       // Check if still current execution
@@ -94,6 +141,15 @@ export class MotionExecutor {
         // Smoothly blend back to idle
         await this.controller.returnToNeutral(300);
         this.callbacks.onLog?.(`[MotionExecutor] Finished sequence "${sequence.id}" → IDLE`, 'success');
+        this.callbacks.onProgress?.({
+          elapsedMs: totalDurationMs,
+          totalDurationMs,
+          currentStep: totalSteps,
+          totalSteps,
+          motionId: currentMotionId || '',
+          stepDescription: 'Completed'
+        });
+        this.callbacks.onStateChange?.('completed');
         this.callbacks.onComplete?.();
         appState.setState('IDLE');
         this.isRunning = false;
@@ -104,11 +160,15 @@ export class MotionExecutor {
     } catch (err: any) {
       this.callbacks.onLog?.(`[MotionExecutor] Error during execution: ${err.message}`, 'error');
       appState.setState('ERROR');
+      this.callbacks.onStateChange?.('stopped');
       this.isRunning = false;
       return false;
     }
   }
 
+  /**
+   * Immediately halts execution and blends avatar smoothly back to neutral.
+   */
   public stop(): void {
     if (this.isRunning) {
       this.isRunning = false;
@@ -116,30 +176,47 @@ export class MotionExecutor {
       this.currentExecutionId++;
       this.controller.returnToNeutral(180);
       appState.setState('IDLE');
+      this.callbacks.onStateChange?.('stopped');
+      this.callbacks.onLog?.('[MotionExecutor] Motion stopped by user.', 'info');
     }
   }
 
+  /**
+   * Pauses active sequence execution.
+   */
   public pause(): void {
     if (this.isRunning && !this.isPaused) {
       this.isPaused = true;
       appState.setState('PAUSED');
+      this.callbacks.onStateChange?.('paused');
       this.callbacks.onLog?.('[MotionExecutor] Motion paused.', 'info');
     }
   }
 
+  /**
+   * Resumes paused sequence execution.
+   */
   public resume(): void {
     if (this.isRunning && this.isPaused) {
       this.isPaused = false;
       appState.setState('PLAYING');
+      this.callbacks.onStateChange?.('playing');
       this.callbacks.onLog?.('[MotionExecutor] Motion resumed.', 'info');
     }
   }
 
+  /**
+   * Returns whether a sequence is currently active.
+   */
   public getIsRunning(): boolean {
     return this.isRunning;
   }
 
+  /**
+   * Returns whether the sequence is currently paused.
+   */
   public getIsPaused(): boolean {
     return this.isPaused;
   }
 }
+
