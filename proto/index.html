@@ -96,13 +96,28 @@
             </div>
           </section>
 
-          <!-- Animation Playback Speed -->
+          <!-- Animation Controls & Speed -->
           <section class="debug-section">
             <div class="section-title">
-              Animation Speed
-              <span class="badge" id="speed-value">1.0×</span>
+              Animation Controls
+              <span class="badge" id="idle-badge">Idle: ON</span>
             </div>
-            <div class="speed-slider-container">
+
+            <!-- Idle Animation Switch -->
+            <div class="toggle-control-row">
+              <span class="control-label">Idle Animation</span>
+              <label class="toggle-switch" title="Toggle default idle animation">
+                <input type="checkbox" id="idle-animation-toggle" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <!-- Playback Speed -->
+            <div class="speed-slider-container" style="margin-top: 10px;">
+              <div class="slider-header-row">
+                <span class="control-label">Playback Speed</span>
+                <span class="badge" id="speed-value">1.0×</span>
+              </div>
               <input
                 type="range"
                 id="speed-slider"

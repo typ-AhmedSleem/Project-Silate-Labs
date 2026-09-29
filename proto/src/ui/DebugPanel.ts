@@ -23,6 +23,10 @@ export class DebugPanel {
   private activeGestureBadgeEl: HTMLElement | null;
   private gestureButtons: NodeListOf<HTMLButtonElement>;
 
+  // Idle Animation Toggle Switch
+  private idleToggleEl: HTMLInputElement | null;
+  private idleBadgeEl: HTMLElement | null;
+
   // Pipeline Inspector Elements
   private pipelineStatusBadgeEl: HTMLElement | null;
   private pipelineTokensEl: HTMLElement | null;
@@ -33,6 +37,7 @@ export class DebugPanel {
   private isCollapsed: boolean = false;
   private onSpeedChangeCallback?: (speed: number) => void;
   private onGestureTriggerCallback?: (gesture: string) => void;
+  private onIdleToggleCallback?: (enabled: boolean) => void;
 
   constructor() {
     this.panel = document.getElementById('debug-panel') as HTMLElement;
@@ -57,6 +62,9 @@ export class DebugPanel {
     this.activeGestureBadgeEl = document.getElementById('active-gesture-badge');
     this.gestureButtons = document.querySelectorAll('.btn-gesture');
 
+    this.idleToggleEl = document.getElementById('idle-animation-toggle') as HTMLInputElement;
+    this.idleBadgeEl = document.getElementById('idle-badge');
+
     this.pipelineStatusBadgeEl = document.getElementById('pipeline-status-badge');
     this.pipelineTokensEl = document.getElementById('pipeline-tokens');
     this.pipelineFilesEl = document.getElementById('pipeline-files');
@@ -76,6 +84,15 @@ export class DebugPanel {
       if (!details || details.length === 0) return;
       const allOpen = Array.from(details).every((d) => d.open);
       details.forEach((d) => (d.open = !allOpen));
+    });
+
+    // Idle toggle listener
+    this.idleToggleEl?.addEventListener('change', () => {
+      const enabled = this.idleToggleEl?.checked ?? true;
+      this.setIdleBadge(enabled);
+      if (this.onIdleToggleCallback) {
+        this.onIdleToggleCallback(enabled);
+      }
     });
 
     // Speed slider listener
@@ -106,6 +123,17 @@ export class DebugPanel {
 
   public onGestureTrigger(callback: (gesture: string) => void): void {
     this.onGestureTriggerCallback = callback;
+  }
+
+  public onIdleToggle(callback: (enabled: boolean) => void): void {
+    this.onIdleToggleCallback = callback;
+  }
+
+  public setIdleBadge(enabled: boolean): void {
+    if (this.idleBadgeEl) {
+      this.idleBadgeEl.textContent = enabled ? 'Idle: ON' : 'Idle: OFF';
+      this.idleBadgeEl.style.color = enabled ? '#7ee787' : '#8b949e';
+    }
   }
 
   public setActiveGesture(name: string): void {
