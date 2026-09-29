@@ -33,6 +33,7 @@ export class DebugPanel {
   private pipelineFilesEl: HTMLElement | null;
   private pipelineResolvedEl: HTMLElement | null;
   private pipelineExecutionEl: HTMLElement | null;
+  private pipelineSequenceFlowEl: HTMLElement | null;
 
   private isCollapsed: boolean = false;
   private onSpeedChangeCallback?: (speed: number) => void;
@@ -70,6 +71,7 @@ export class DebugPanel {
     this.pipelineFilesEl = document.getElementById('pipeline-files');
     this.pipelineResolvedEl = document.getElementById('pipeline-resolved');
     this.pipelineExecutionEl = document.getElementById('pipeline-execution');
+    this.pipelineSequenceFlowEl = document.getElementById('pipeline-sequence-flow');
 
     this.initEvents();
   }
@@ -172,6 +174,58 @@ export class DebugPanel {
     if (data.execution !== undefined && this.pipelineExecutionEl) {
       this.pipelineExecutionEl.textContent = data.execution;
     }
+  }
+
+  public setSequenceFlow(words: Array<{ word: string; status?: 'pending' | 'active' | 'completed' | 'skipped' }>): void {
+    if (!this.pipelineSequenceFlowEl) return;
+    if (words.length === 0) {
+      this.pipelineSequenceFlowEl.innerHTML = '<span class="empty-hint">Standby</span>';
+      return;
+    }
+
+    const html = words.map((item, idx) => {
+      const statusClass = item.status || 'pending';
+      const arrow = idx < words.length - 1 ? '<span class="seq-arrow">→</span>' : '';
+      const prefix = statusClass === 'active' ? '▶ ' : statusClass === 'skipped' ? '⚠ ' : '';
+      return `<span class="seq-chip ${statusClass}" data-word="${item.word}">${prefix}${item.word}</span>${arrow}`;
+    }).join(' ');
+
+    this.pipelineSequenceFlowEl.innerHTML = html;
+  }
+
+  public updateActiveSequenceWord(activeWord: string): void {
+    if (!this.pipelineSequenceFlowEl) return;
+    const cleanActive = activeWord.toLowerCase();
+    const chips = this.pipelineSequenceFlowEl.querySelectorAll('.seq-chip');
+
+    let passedActive = false;
+    chips.forEach((chip) => {
+      const w = chip.getAttribute('data-word')?.toLowerCase() || '';
+      if (chip.classList.contains('skipped')) return;
+
+      if (w === cleanActive) {
+        chip.className = 'seq-chip active';
+        chip.innerHTML = `▶ ${w}`;
+        passedActive = true;
+      } else if (!passedActive) {
+        chip.className = 'seq-chip completed';
+        chip.innerHTML = `✓ ${w}`;
+      } else {
+        chip.className = 'seq-chip pending';
+        chip.innerHTML = `${w}`;
+      }
+    });
+  }
+
+  public completeSequenceFlow(): void {
+    if (!this.pipelineSequenceFlowEl) return;
+    const chips = this.pipelineSequenceFlowEl.querySelectorAll('.seq-chip');
+    chips.forEach((chip) => {
+      if (chip.classList.contains('skipped')) return;
+      const w = chip.getAttribute('data-word');
+      chip.className = 'seq-chip completed';
+      chip.innerHTML = `✓ ${w}`;
+    });
   }
 
   public toggle(forceCollapse?: boolean): void {

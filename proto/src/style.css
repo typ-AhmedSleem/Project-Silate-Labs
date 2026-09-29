@@ -671,4 +671,58 @@ html, body {
   color: var(--accent-cyan);
 }
 
+/* Sequence Visualizer */
+.pipeline-step.visualizer-step {
+  align-items: flex-start;
+}
+
+.sequence-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+}
+
+.seq-chip {
+  padding: 2px 7px;
+  background: #21262d;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.seq-chip.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+}
+
+.seq-chip.completed {
+  background: rgba(35, 134, 54, 0.15);
+  border-color: rgba(46, 160, 67, 0.4);
+  color: #7ee787;
+}
+
+.seq-chip.skipped {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: var(--accent-amber);
+  text-decoration: line-through;
+}
+
+.seq-arrow {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+
 
