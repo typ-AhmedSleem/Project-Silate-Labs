@@ -3,6 +3,17 @@ import { SkeletonController } from './SkeletonController.js';
 import { FacialController } from './FacialController.js';
 import { Avatar } from './Avatar.js';
 
+export type BodyChannelName =
+  | 'body'
+  | 'leftArm'
+  | 'rightArm'
+  | 'leftHand'
+  | 'rightHand'
+  | 'fingers'
+  | 'head'
+  | 'face'
+  | 'lips';
+
 export interface RotationTarget {
   x: number;
   y: number;
@@ -22,6 +33,7 @@ export interface BoneRotationInstruction {
 interface ActiveBoneTransition {
   bone: THREE.Bone;
   boneName: string;
+  channel: BodyChannelName;
   startQuat: THREE.Quaternion;
   targetQuat: THREE.Quaternion;
   duration: number; // in seconds
@@ -40,18 +52,87 @@ export class AvatarController {
   private overriddenBones: Set<string> = new Set();
   private speedMultiplier: number = 1.0;
   private waiters: Set<{ update: (scaledDelta: number) => void }> = new Set();
-  private logger?: (msg: string, type?: 'info' | 'warn' | 'error') => void;
+  private channelStates: Map<BodyChannelName, string> = new Map();
+  private onChannelChangeCallback?: (channels: Record<BodyChannelName, string>) => void;
+  private logger?: (msg: string, type?: 'info' | 'success' | 'warn' | 'error') => void;
 
   constructor(
     avatar: Avatar,
     skeleton: SkeletonController,
     facial: FacialController,
-    logger?: (msg: string, type?: 'info' | 'warn' | 'error') => void
+    logger?: (msg: string, type?: 'info' | 'success' | 'warn' | 'error') => void
   ) {
     this.avatar = avatar;
     this.skeleton = skeleton;
     this.facial = facial;
     this.logger = logger;
+
+    // Initialize default channel states
+    const channels: BodyChannelName[] = [
+      'body',
+      'leftArm',
+      'rightArm',
+      'leftHand',
+      'rightHand',
+      'fingers',
+      'head',
+      'face',
+      'lips'
+    ];
+    channels.forEach((c) => this.channelStates.set(c, 'Idle'));
+  }
+
+  public onChannelChange(callback: (channels: Record<BodyChannelName, string>) => void): void {
+    this.onChannelChangeCallback = callback;
+    this.notifyChannelUpdate();
+  }
+
+  public getChannelForBone(boneName: string): BodyChannelName {
+    const lower = boneName.toLowerCase();
+    if (
+      lower.includes('thumb') ||
+      lower.includes('index') ||
+      lower.includes('middle') ||
+      lower.includes('ring') ||
+      lower.includes('pinky')
+    ) {
+      return 'fingers';
+    }
+    if (lower.includes('head') || lower.includes('neck')) {
+      return 'head';
+    }
+    if (lower.includes('lefthand')) {
+      return 'leftHand';
+    }
+    if (lower.includes('righthand')) {
+      return 'rightHand';
+    }
+    if (lower.includes('leftarm') || lower.includes('leftforearm') || lower.includes('leftshoulder')) {
+      return 'leftArm';
+    }
+    if (lower.includes('rightarm') || lower.includes('rightforearm') || lower.includes('rightshoulder')) {
+      return 'rightArm';
+    }
+    return 'body';
+  }
+
+  public setChannelState(channel: BodyChannelName, state: string): void {
+    this.channelStates.set(channel, state);
+    this.notifyChannelUpdate();
+  }
+
+  public getActiveChannels(): Record<BodyChannelName, string> {
+    const result = {} as Record<BodyChannelName, string>;
+    this.channelStates.forEach((val, key) => {
+      result[key] = val;
+    });
+    return result;
+  }
+
+  private notifyChannelUpdate(): void {
+    if (this.onChannelChangeCallback) {
+      this.onChannelChangeCallback(this.getActiveChannels());
+    }
   }
 
   public setSpeed(speed: number): void {
@@ -80,6 +161,9 @@ export class AvatarController {
       return Promise.resolve();
     }
 
+    const channel = this.getChannelForBone(bone.name);
+    this.setChannelState(channel, `rotating ${bone.name}`);
+
     const targetQuat = this.toQuaternion(target);
     const durationSec = Math.max(0.01, durationMs / 1000);
 
@@ -90,13 +174,17 @@ export class AvatarController {
       const transition: ActiveBoneTransition = {
         bone,
         boneName: bone.name,
+        channel,
         startQuat: bone.quaternion.clone(),
         targetQuat,
         duration: durationSec,
         elapsed: 0,
         easing,
         isReturnToIdle: false,
-        resolve
+        resolve: () => {
+          this.setChannelState(channel, 'Hold/Ready');
+          resolve();
+        }
       };
 
       this.activeTransitions.set(bone.name, transition);
@@ -114,6 +202,26 @@ export class AvatarController {
   }
 
   /**
+   * Applies named finger / hand poses:
+   * 'open', 'closed', 'point', 'thumb_up', 'peace'
+   */
+  public async applyHandPose(
+    side: 'left' | 'right',
+    pose: 'open' | 'closed' | 'point' | 'thumb_up' | 'peace',
+    durationMs: number = 300
+  ): Promise<void> {
+    const targets = this.skeleton.getHandPoseInstructions(side, pose);
+    if (targets.length === 0) return;
+
+    this.setChannelState('fingers', `${side} ${pose}`);
+    const promises = targets.map((t) =>
+      this.rotateBone(t.bone, t.rotation, durationMs)
+    );
+    await Promise.all(promises);
+    this.setChannelState('fingers', `${side} ${pose}`);
+  }
+
+  /**
    * Blends all modified bones smoothly back to their neutral / base idle transforms.
    */
   public async returnToNeutral(durationMs = 350): Promise<void> {
@@ -124,19 +232,26 @@ export class AvatarController {
       const bone = this.skeleton.getBone(boneName);
       if (!bone) continue;
 
+      const channel = this.getChannelForBone(bone.name);
+      this.setChannelState(channel, 'Returning');
+
       const restQuat = this.skeleton.getOriginalRotation(boneName) || new THREE.Quaternion();
 
       const p = new Promise<void>((resolve) => {
         const transition: ActiveBoneTransition = {
           bone,
           boneName: bone.name,
+          channel,
           startQuat: bone.quaternion.clone(),
           targetQuat: restQuat,
           duration: durationSec,
           elapsed: 0,
           easing: AvatarController.easeInOutCubic,
           isReturnToIdle: true,
-          resolve
+          resolve: () => {
+            this.setChannelState(channel, 'Idle');
+            resolve();
+          }
         };
 
         this.activeTransitions.set(bone.name, transition);
@@ -147,6 +262,12 @@ export class AvatarController {
 
     await Promise.all(promises);
     this.overriddenBones.clear();
+
+    // Reset all channels to Idle
+    this.channelStates.forEach((_, key) => {
+      this.channelStates.set(key, 'Idle');
+    });
+    this.notifyChannelUpdate();
   }
 
   /**
@@ -208,10 +329,11 @@ export class AvatarController {
   }
 
   /**
-   * Applies named base poses.
+   * Applies named base poses or hand poses.
    */
   public async applyPose(poseName: string, durationMs = 300): Promise<void> {
-    switch (poseName.toLowerCase()) {
+    const lower = poseName.toLowerCase();
+    switch (lower) {
       case 'neutral':
       case 'idle':
         await this.returnToNeutral(durationMs);
@@ -229,6 +351,28 @@ export class AvatarController {
         await this.rotateBones(tasks);
         break;
       }
+      case 'open':
+      case 'open_hand':
+      case 'open_right_hand':
+        await this.applyHandPose('right', 'open', durationMs);
+        break;
+      case 'closed':
+      case 'close_hand':
+      case 'close_right_hand':
+      case 'fist':
+        await this.applyHandPose('right', 'closed', durationMs);
+        break;
+      case 'point':
+      case 'point_hand':
+        await this.applyHandPose('right', 'point', durationMs);
+        break;
+      case 'thumb_up':
+      case 'thumbs_up':
+        await this.applyHandPose('right', 'thumb_up', durationMs);
+        break;
+      case 'peace':
+        await this.applyHandPose('right', 'peace', durationMs);
+        break;
       default:
         this.logger?.(`[AvatarController] Unknown pose: ${poseName}`, 'warn');
         break;
@@ -244,9 +388,8 @@ export class AvatarController {
       return new THREE.Quaternion().setFromEuler(target);
     }
 
-    // Target object { x, y, z, isDegrees? }
     const DEG2RAD = Math.PI / 180;
-    const isDeg = target.isDegrees !== false; // Default to degrees for readable motion specs
+    const isDeg = target.isDegrees !== false;
     const x = isDeg ? target.x * DEG2RAD : target.x;
     const y = isDeg ? target.y * DEG2RAD : target.y;
     const z = isDeg ? target.z * DEG2RAD : target.z;
