@@ -27,6 +27,10 @@
         </div>
 
         <!-- Camera / Scene Quick Hint -->
+        <!-- Toast Notification Container -->
+        <div id="toast-container" class="toast-container"></div>
+
+        <!-- Camera / Scene Quick Hint -->
         <div id="viewport-hint">
           <span>Left click + drag to rotate • Right click to pan • Scroll to zoom</span>
         </div>
@@ -46,6 +50,20 @@
             <span>Translate</span>
           </button>
         </div>
+
+        <!-- Playback Controls (Phase 6) -->
+        <div class="playback-controls" id="playback-controls">
+          <button id="playback-pause-btn" class="btn btn-secondary btn-playback" title="Pause Motion" disabled>
+            ⏸ Pause
+          </button>
+          <button id="playback-resume-btn" class="btn btn-secondary btn-playback hidden" title="Resume Motion">
+            ▶ Resume
+          </button>
+          <button id="playback-stop-btn" class="btn btn-secondary btn-playback" title="Stop Motion" disabled>
+            ⏹ Stop
+          </button>
+        </div>
+
         <div class="status-bar">
           <span class="status-indicator" id="status-badge">
             <span class="status-dot"></span>
@@ -66,217 +84,248 @@
 
         <div class="debug-content">
           <!-- App & Model Status -->
-          <section class="debug-section">
-            <div class="section-title">Model Overview</div>
-            <div class="stat-grid">
-              <div class="stat-item">
-                <span class="stat-label">Model:</span>
-                <span class="stat-value" id="debug-model-status">Loading...</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Bones:</span>
-                <span class="stat-value" id="debug-bones-count">0</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Animations:</span>
-                <span class="stat-value" id="debug-clips-count">0</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Morph Targets:</span>
-                <span class="stat-value" id="debug-morphs-count">0</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Active Clip:</span>
-                <span class="stat-value" id="debug-active-clip">None</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">State:</span>
-                <span class="stat-value highlight" id="debug-app-state">LOADING</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Animation Controls & Speed -->
-          <section class="debug-section">
-            <div class="section-title">
-              Animation Controls
-              <span class="badge" id="idle-badge">Idle: ON</span>
-            </div>
-
-            <!-- Idle Animation Switch -->
-            <div class="toggle-control-row">
-              <span class="control-label">Idle Animation</span>
-              <label class="toggle-switch" title="Toggle default idle animation">
-                <input type="checkbox" id="idle-animation-toggle" checked />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <!-- Playback Speed -->
-            <div class="speed-slider-container" style="margin-top: 10px;">
-              <div class="slider-header-row">
-                <span class="control-label">Playback Speed</span>
-                <span class="badge" id="speed-value">1.0×</span>
-              </div>
-              <input
-                type="range"
-                id="speed-slider"
-                min="0.1"
-                max="3.0"
-                step="0.1"
-                value="1.0"
-                class="slider"
-              />
-              <div class="slider-marks">
-                <span>0.1×</span>
-                <span>1.0×</span>
-                <span>2.0×</span>
-                <span>3.0×</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Gesture Triggers (Phase 2) -->
-          <section class="debug-section">
-            <div class="section-title">
-              Gesture Library
-              <span class="badge" id="active-gesture-badge">Idle</span>
-            </div>
-            <div class="gesture-buttons-grid">
-              <button class="btn btn-secondary btn-gesture" data-gesture="return_neutral">Idle / Neutral</button>
-              <button class="btn btn-secondary btn-gesture" data-gesture="raise_right_hand">Raise Right Arm</button>
-              <button class="btn btn-secondary btn-gesture" data-gesture="wave_right_hand">Wave</button>
-              <button class="btn btn-secondary btn-gesture" data-gesture="nod">Nod</button>
-              <button class="btn btn-secondary btn-gesture" data-gesture="shake_head">Shake Head</button>
-              <button class="btn btn-secondary btn-gesture" data-gesture="thumbs_up">Thumbs Up</button>
-              <button class="btn btn-secondary btn-gesture" data-gesture="point_right">Point</button>
-            </div>
-          </section>
-
-          <!-- Motion Pipeline Status (Phase 3) -->
-          <section class="debug-section">
-            <div class="section-title">
-              Motion Pipeline
-              <span class="badge" id="pipeline-status-badge">Standby</span>
-            </div>
-            <div class="pipeline-flow">
-              <div class="pipeline-step">
-                <span class="step-num">1</span>
-                <span class="step-name">Tokens:</span>
-                <span class="step-data" id="pipeline-tokens">None</span>
-              </div>
-              <div class="pipeline-step">
-                <span class="step-num">2</span>
-                <span class="step-name">Motion JSON:</span>
-                <span class="step-data" id="pipeline-files">None</span>
-              </div>
-              <div class="pipeline-step">
-                <span class="step-num">3</span>
-                <span class="step-name">Resolved:</span>
-                <span class="step-data" id="pipeline-resolved">None</span>
-              </div>
-              <div class="pipeline-step">
-                <span class="step-num">4</span>
-                <span class="step-name">Execution:</span>
-                <span class="step-data highlight" id="pipeline-execution">Idle</span>
-              </div>
-              <div class="pipeline-step visualizer-step">
-                <span class="step-num">5</span>
-                <span class="step-name">Sequence:</span>
-                <div id="pipeline-sequence-flow" class="sequence-chips-container">
-                  <span class="empty-hint">Standby</span>
+          <details class="debug-section" open>
+            <summary class="section-title">Model Overview</summary>
+            <div class="section-body">
+              <div class="stat-grid">
+                <div class="stat-item">
+                  <span class="stat-label">Model:</span>
+                  <span class="stat-value" id="debug-model-status">Loading...</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Bones:</span>
+                  <span class="stat-value" id="debug-bones-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Animations:</span>
+                  <span class="stat-value" id="debug-clips-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Morph Targets:</span>
+                  <span class="stat-value" id="debug-morphs-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Active Clip:</span>
+                  <span class="stat-value" id="debug-active-clip">None</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">State:</span>
+                  <span class="stat-value highlight" id="debug-app-state">LOADING</span>
                 </div>
               </div>
             </div>
-          </section>
+          </details>
+
+          <!-- Animation Controls & Speed -->
+          <details class="debug-section" open>
+            <summary class="section-title">
+              Animation Controls
+              <span class="badge" id="idle-badge">Idle: ON</span>
+            </summary>
+            <div class="section-body">
+              <!-- Idle Animation Switch -->
+              <div class="toggle-control-row">
+                <span class="control-label">Idle Animation</span>
+                <label class="toggle-switch" title="Toggle default idle animation">
+                  <input type="checkbox" id="idle-animation-toggle" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <!-- Skeleton Overlay Switch (Task 6.2) -->
+              <div class="toggle-control-row">
+                <span class="control-label">Skeleton Overlay</span>
+                <label class="toggle-switch" title="Toggle 3D SkeletonHelper overlay">
+                  <input type="checkbox" id="skeleton-overlay-toggle" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <!-- Playback Speed -->
+              <div class="speed-slider-container" style="margin-top: 10px;">
+                <div class="slider-header-row">
+                  <span class="control-label">Playback Speed</span>
+                  <span class="badge" id="speed-value">1.0×</span>
+                </div>
+                <input
+                  type="range"
+                  id="speed-slider"
+                  min="0.1"
+                  max="3.0"
+                  step="0.1"
+                  value="1.0"
+                  class="slider"
+                />
+                <div class="slider-marks">
+                  <span>0.1×</span>
+                  <span>1.0×</span>
+                  <span>2.0×</span>
+                  <span>3.0×</span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- Gesture Triggers (Phase 2) -->
+          <details class="debug-section" open>
+            <summary class="section-title">
+              Gesture Library
+              <span class="badge" id="active-gesture-badge">Idle</span>
+            </summary>
+            <div class="section-body">
+              <div class="gesture-buttons-grid">
+                <button class="btn btn-secondary btn-gesture" data-gesture="return_neutral">Idle / Neutral</button>
+                <button class="btn btn-secondary btn-gesture" data-gesture="raise_right_hand">Raise Right Arm</button>
+                <button class="btn btn-secondary btn-gesture" data-gesture="wave_right_hand">Wave</button>
+                <button class="btn btn-secondary btn-gesture" data-gesture="nod">Nod</button>
+                <button class="btn btn-secondary btn-gesture" data-gesture="shake_head">Shake Head</button>
+                <button class="btn btn-secondary btn-gesture" data-gesture="thumbs_up">Thumbs Up</button>
+                <button class="btn btn-secondary btn-gesture" data-gesture="point_right">Point</button>
+              </div>
+            </div>
+          </details>
+
+          <!-- Motion Pipeline Status (Phase 3 & 6) -->
+          <details class="debug-section" open>
+            <summary class="section-title">
+              Motion Pipeline
+              <span class="badge" id="pipeline-status-badge">Standby</span>
+            </summary>
+            <div class="section-body">
+              <div class="pipeline-flow">
+                <div class="pipeline-step">
+                  <span class="step-num">1</span>
+                  <span class="step-name">Tokens:</span>
+                  <span class="step-data" id="pipeline-tokens">None</span>
+                </div>
+                <div class="pipeline-step">
+                  <span class="step-num">2</span>
+                  <span class="step-name">Motion JSON:</span>
+                  <span class="step-data" id="pipeline-files">None</span>
+                </div>
+                <div class="pipeline-step">
+                  <span class="step-num">3</span>
+                  <span class="step-name">Resolved:</span>
+                  <span class="step-data" id="pipeline-resolved">None</span>
+                </div>
+                <div class="pipeline-step">
+                  <span class="step-num">4</span>
+                  <span class="step-name">Execution:</span>
+                  <span class="step-data highlight" id="pipeline-execution">Idle</span>
+                </div>
+                <div class="pipeline-step">
+                  <span class="step-num">⏱</span>
+                  <span class="step-name">Progress:</span>
+                  <span class="step-data" id="pipeline-progress">0.0s / 0.0s (0%)</span>
+                </div>
+                <div class="pipeline-step visualizer-step">
+                  <span class="step-num">5</span>
+                  <span class="step-name">Sequence:</span>
+                  <div id="pipeline-sequence-flow" class="sequence-chips-container">
+                    <span class="empty-hint">Standby</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
 
           <!-- Body Channels Status (Phase 5) -->
-          <section class="debug-section">
-            <div class="section-title">
+          <details class="debug-section" open>
+            <summary class="section-title">
               Body Channels
               <span class="badge" id="active-channels-count">9 Channels</span>
+            </summary>
+            <div class="section-body">
+              <div class="channels-grid" id="channels-status-grid">
+                <div class="channel-chip" data-channel="body">
+                  <span class="channel-name">Body</span>
+                  <span class="channel-state" id="ch-body">Idle</span>
+                </div>
+                <div class="channel-chip" data-channel="head">
+                  <span class="channel-name">Head</span>
+                  <span class="channel-state" id="ch-head">Idle</span>
+                </div>
+                <div class="channel-chip" data-channel="leftArm">
+                  <span class="channel-name">Left Arm</span>
+                  <span class="channel-state" id="ch-leftArm">Idle</span>
+                </div>
+                <div class="channel-chip" data-channel="rightArm">
+                  <span class="channel-name">Right Arm</span>
+                  <span class="channel-state" id="ch-rightArm">Idle</span>
+                </div>
+                <div class="channel-chip" data-channel="leftHand">
+                  <span class="channel-name">Left Hand</span>
+                  <span class="channel-state" id="ch-leftHand">Idle</span>
+                </div>
+                <div class="channel-chip" data-channel="rightHand">
+                  <span class="channel-name">Right Hand</span>
+                  <span class="channel-state" id="ch-rightHand">Idle</span>
+                </div>
+                <div class="channel-chip" data-channel="fingers">
+                  <span class="channel-name">Fingers</span>
+                  <span class="channel-state" id="ch-fingers">Idle</span>
+                </div>
+                <div class="channel-chip" data-channel="face">
+                  <span class="channel-name">Face [Log]</span>
+                  <span class="channel-state" id="ch-face">Idle</span>
+                </div>
+                <div class="channel-chip" data-channel="lips">
+                  <span class="channel-name">Lips [Log]</span>
+                  <span class="channel-state" id="ch-lips">Idle</span>
+                </div>
+              </div>
             </div>
-            <div class="channels-grid" id="channels-status-grid">
-              <div class="channel-chip" data-channel="body">
-                <span class="channel-name">Body</span>
-                <span class="channel-state" id="ch-body">Idle</span>
-              </div>
-              <div class="channel-chip" data-channel="head">
-                <span class="channel-name">Head</span>
-                <span class="channel-state" id="ch-head">Idle</span>
-              </div>
-              <div class="channel-chip" data-channel="leftArm">
-                <span class="channel-name">Left Arm</span>
-                <span class="channel-state" id="ch-leftArm">Idle</span>
-              </div>
-              <div class="channel-chip" data-channel="rightArm">
-                <span class="channel-name">Right Arm</span>
-                <span class="channel-state" id="ch-rightArm">Idle</span>
-              </div>
-              <div class="channel-chip" data-channel="leftHand">
-                <span class="channel-name">Left Hand</span>
-                <span class="channel-state" id="ch-leftHand">Idle</span>
-              </div>
-              <div class="channel-chip" data-channel="rightHand">
-                <span class="channel-name">Right Hand</span>
-                <span class="channel-state" id="ch-rightHand">Idle</span>
-              </div>
-              <div class="channel-chip" data-channel="fingers">
-                <span class="channel-name">Fingers</span>
-                <span class="channel-state" id="ch-fingers">Idle</span>
-              </div>
-              <div class="channel-chip" data-channel="face">
-                <span class="channel-name">Face [Log]</span>
-                <span class="channel-state" id="ch-face">Idle</span>
-              </div>
-              <div class="channel-chip" data-channel="lips">
-                <span class="channel-name">Lips [Log]</span>
-                <span class="channel-state" id="ch-lips">Idle</span>
-              </div>
-            </div>
-          </section>
+          </details>
 
           <!-- Animation Clips List -->
-          <section class="debug-section">
-            <div class="section-title">
+          <details class="debug-section">
+            <summary class="section-title">
               Animation Clips
               <span class="badge" id="clips-badge">0</span>
+            </summary>
+            <div class="section-body">
+              <ul id="debug-clips-list" class="debug-list">
+                <li class="empty-hint">No animation clips detected</li>
+              </ul>
             </div>
-            <ul id="debug-clips-list" class="debug-list">
-              <li class="empty-hint">No animation clips detected</li>
-            </ul>
-          </section>
+          </details>
 
           <!-- Skeleton Tree -->
-          <section class="debug-section">
-            <div class="section-title">
+          <details class="debug-section">
+            <summary class="section-title">
               Skeleton Hierarchy
               <button id="toggle-skeleton-btn" class="btn-small">Toggle All</button>
+            </summary>
+            <div class="section-body">
+              <div id="debug-skeleton-tree" class="skeleton-tree">
+                <div class="empty-hint">Waiting for skeleton data...</div>
+              </div>
             </div>
-            <div id="debug-skeleton-tree" class="skeleton-tree">
-              <div class="empty-hint">Waiting for skeleton data...</div>
-            </div>
-          </section>
+          </details>
 
           <!-- Morph Targets List -->
-          <section class="debug-section">
-            <div class="section-title">
+          <details class="debug-section">
+            <summary class="section-title">
               Morph Targets (Deferred)
               <span class="badge" id="morphs-badge">0</span>
+            </summary>
+            <div class="section-body">
+              <ul id="debug-morphs-list" class="debug-list">
+                <li class="empty-hint">No morph targets</li>
+              </ul>
             </div>
-            <ul id="debug-morphs-list" class="debug-list">
-              <li class="empty-hint">No morph targets</li>
-            </ul>
-          </section>
+          </details>
 
           <!-- Realtime Logs -->
-          <section class="debug-section flex-grow">
-            <div class="section-title">
+          <details class="debug-section flex-grow" open>
+            <summary class="section-title">
               System & Action Logs
               <button id="clear-logs-btn" class="btn-small">Clear</button>
+            </summary>
+            <div class="section-body flex-grow">
+              <div id="debug-logs" class="log-console"></div>
             </div>
-            <div id="debug-logs" class="log-console"></div>
-          </section>
+          </details>
         </div>
       </aside>
     </div>

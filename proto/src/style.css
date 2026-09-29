@@ -235,6 +235,24 @@ html, body {
   background: #30363d;
 }
 
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.playback-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-playback {
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
@@ -275,6 +293,78 @@ html, body {
 .icon-btn:hover {
   color: var(--text-primary);
   background: #21262d;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Toast Notifications (Task 6.6) */
+.toast-container {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 460px;
+  width: 90%;
+}
+
+.toast {
+  pointer-events: auto;
+  background: rgba(22, 27, 34, 0.95);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(12px);
+  padding: 10px 16px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.toast-hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.toast.info {
+  border-left: 4px solid var(--accent-cyan);
+  color: var(--text-primary);
+}
+
+.toast.success {
+  border-left: 4px solid var(--accent-hover);
+  color: #7ee787;
+}
+
+.toast.warn {
+  border-left: 4px solid var(--accent-amber);
+  color: var(--accent-amber);
+}
+
+.toast.error {
+  border-left: 4px solid var(--accent-red);
+  color: var(--accent-red);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Debug Panel */
@@ -320,19 +410,69 @@ html, body {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.debug-section {
+.debug-section,
+details.debug-section {
   background: rgba(13, 17, 23, 0.6);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px 12px;
+  transition: all 0.2s ease;
 }
 
-.debug-section.flex-grow {
+details.debug-section summary.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  margin-bottom: 0;
+}
+
+details.debug-section summary.section-title::-webkit-details-marker {
+  display: none;
+}
+
+details.debug-section summary.section-title::before {
+  content: '▸';
+  color: var(--text-muted);
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+
+details.debug-section[open] summary.section-title::before {
+  transform: rotate(90deg);
+  color: var(--accent-cyan);
+}
+
+details.debug-section[open] summary.section-title {
+  margin-bottom: 10px;
+}
+
+.section-body {
+  margin-top: 4px;
+}
+
+.debug-section.flex-grow,
+details.debug-section.flex-grow {
   flex: 1;
   min-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+details.debug-section.flex-grow[open] .section-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
 }

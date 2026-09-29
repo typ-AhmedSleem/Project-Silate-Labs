@@ -135,12 +135,25 @@ async function bootstrap() {
             execution: `${current}/${total}: ${stepInfo.step.description}`
           });
         },
+        onProgress: (progress) => {
+          ui.debugPanel.setPipelineProgress(progress.elapsedMs, progress.totalDurationMs);
+        },
+        onStateChange: (state) => {
+          if (state === 'playing') {
+            ui.setPlaybackState('playing');
+          } else if (state === 'paused') {
+            ui.setPlaybackState('paused');
+          } else {
+            ui.setPlaybackState('idle');
+          }
+        },
         onComplete: () => {
           ui.debugPanel.completeSequenceFlow();
           ui.debugPanel.setPipelineStatus({
             status: 'Completed',
             execution: 'Returned to IDLE'
           });
+          ui.setPlaybackState('idle');
         },
         onLog: (msg, type) => {
           ui.debugPanel.log(msg, type || 'info');
@@ -156,6 +169,7 @@ async function bootstrap() {
       ui.setStatus(`Avatar Ready (${data.activeClip || 'Idle'})`, 'ready');
       ui.debugPanel.setModelStatus('Loaded');
       ui.debugPanel.updateModelData(data);
+      ui.debugPanel.setPipelineProgress(0, 0);
 
       ui.debugPanel.log(`Skeleton mapped: ${skeletonController.getAllBones().length} bones indexed`, 'success');
       ui.debugPanel.setPipelineStatus({
@@ -192,15 +206,53 @@ async function bootstrap() {
     }
   });
 
-  // 8. Wire gesture buttons (individual manual triggers)
+  // 8. Wire skeleton overlay toggle (Task 6.2)
+  ui.debugPanel.onSkeletonToggle((enabled) => {
+    if (currentAvatar) {
+      currentAvatar.setSkeletonHelperVisible(enabled);
+      ui.debugPanel.log(
+        `Skeleton visualization overlay ${enabled ? 'enabled' : 'disabled'}`,
+        'info'
+      );
+    }
+  });
+
+  // 9. Wire playback controls (Task 6.5)
+  ui.onPause(() => {
+    if (currentExecutor && currentExecutor.getIsRunning()) {
+      currentExecutor.pause();
+    }
+  });
+
+  ui.onResume(() => {
+    if (currentExecutor && currentExecutor.getIsRunning()) {
+      currentExecutor.resume();
+    }
+  });
+
+  ui.onStop(() => {
+    if (currentExecutor && currentExecutor.getIsRunning()) {
+      currentExecutor.stop();
+      ui.setPlaybackState('idle');
+      ui.debugPanel.setPipelineStatus({
+        status: 'Stopped',
+        execution: 'Stopped by user'
+      });
+      ui.showToast('Motion playback stopped', 'info', 2000);
+    }
+  });
+
+  // 10. Wire gesture buttons (individual manual triggers)
   ui.debugPanel.onGestureTrigger(async (gestureName) => {
     if (!currentAvatarController) {
+      ui.showToast('Avatar model is not loaded yet', 'warn');
       ui.debugPanel.log('Cannot trigger gesture: Avatar model is not loaded yet.', 'warn');
       return;
     }
 
     if (currentExecutor && currentExecutor.getIsRunning()) {
       currentExecutor.stop();
+      ui.setPlaybackState('idle');
     }
 
     try {
@@ -223,18 +275,20 @@ async function bootstrap() {
     }
   });
 
-  // 9. Wire Translate button (Phase 4 Multi-Word Motion Pipeline)
+  // 11. Wire Translate button (Phase 4 Multi-Word Motion Pipeline + Phase 6 Polish)
   ui.onTranslate(async (phrase: string) => {
     if (!currentAvatarController || !currentResolver || !currentExecutor) {
+      ui.showToast('Cannot translate: Avatar model is not loaded yet', 'error');
       ui.debugPanel.log('Cannot translate: Avatar model is not loaded yet.', 'warn');
       return;
     }
 
     ui.debugPanel.log(`═════════════ [Pipeline Start] "${phrase}" ═════════════`, 'info');
 
-    // 9.1. Tokenize (Task 3.3)
+    // 11.1. Tokenize (Task 3.3)
     const tokens = tokenizer.tokenize(phrase);
     if (tokens.length === 0) {
+      ui.showToast('Please enter a phrase containing words to translate', 'warn');
       ui.debugPanel.log('[Pipeline] Empty phrase after tokenization.', 'warn');
       ui.debugPanel.setPipelineStatus({ status: 'Empty input', execution: 'Aborted' });
       ui.debugPanel.setSequenceFlow([]);
@@ -256,9 +310,10 @@ async function bootstrap() {
     );
     ui.debugPanel.setSequenceFlow(chipItems);
 
-    // 9.2. Fetch Motion Definitions & Resolve (Task 4.1 & Task 4.6)
+    // 11.2. Fetch Motion Definitions & Resolve (Task 4.1 & Task 4.6)
     const resolvedMotions: ResolvedMotion[] = [];
     const loadedFiles: string[] = [];
+    const skippedWords: string[] = [];
 
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
@@ -269,8 +324,9 @@ async function bootstrap() {
         const resolved = currentResolver.resolve(def);
         resolvedMotions.push(resolved);
       } else {
-        // Task 4.6: Unknown word handling — skip gracefully with warning
+        // Task 4.6 & 6.6: Unknown word handling — skip gracefully with warning
         ui.debugPanel.log(`[Pipeline: Repository] ⚠️ Skipped unknown word "${token}" (no motion file found)`, 'warn');
+        skippedWords.push(token);
         chipItems[i].status = 'skipped';
         ui.debugPanel.setSequenceFlow(chipItems);
       }
@@ -281,12 +337,21 @@ async function bootstrap() {
     });
 
     if (resolvedMotions.length === 0) {
+      ui.showToast(
+        `None of the words in "${phrase}" have motion files. Try: hello, how, are, you, thank, yes, no, please, goodbye, welcome`,
+        'warn',
+        6000
+      );
       ui.debugPanel.log(`[Pipeline] ⚠️ No valid motion definitions found for phrase "${phrase}".`, 'warn');
       ui.debugPanel.setPipelineStatus({ status: 'No Motions Found', execution: 'None available' });
       return;
     }
 
-    // 9.3. Compose sequence with smooth transition blending (Task 4.2 & 4.3)
+    if (skippedWords.length > 0) {
+      ui.showToast(`Skipped unknown word(s): ${skippedWords.join(', ')}`, 'info', 3500);
+    }
+
+    // 11.3. Compose sequence with smooth transition blending (Task 4.2 & 4.3)
     const sequence = composer.compose(resolvedMotions, {
       transitionDurationMs: 180,
       sequenceId: `seq_${tokens.filter((_, idx) => chipItems[idx].status !== 'skipped').join('_')}`
@@ -298,7 +363,7 @@ async function bootstrap() {
       execution: 'Starting playback...'
     });
 
-    // 9.4. Execute Sequence with automatic interruption handling (Task 4.4 & Task 4.5)
+    // 11.4. Execute Sequence with automatic interruption handling (Task 4.4 & Task 4.5 & Task 6.5)
     await currentExecutor.execute(sequence);
   });
 

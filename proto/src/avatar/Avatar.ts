@@ -19,6 +19,7 @@ export interface AvatarLoadResult {
 export class Avatar {
   public model?: THREE.Group;
   public mixer?: THREE.AnimationMixer;
+  public skeletonHelper?: THREE.SkeletonHelper;
   public readonly facialController: FacialController;
 
   private scene: THREE.Scene;
@@ -30,7 +31,7 @@ export class Avatar {
   private activeClipName: string | null = null;
   private isProceduralIdle: boolean = false;
   private proceduralIdleTime: number = 0;
-  private idleEnabled: boolean = false;
+  private idleEnabled: boolean = true;
 
   // Track initial rotations for procedural idle to avoid drifting
   private baseRotations: Map<string, THREE.Euler> = new Map();
@@ -105,6 +106,11 @@ export class Avatar {
 
     // Add model to scene
     this.scene.add(model);
+
+    // Setup SkeletonHelper for debug visualization (Task 6.2)
+    this.skeletonHelper = new THREE.SkeletonHelper(model);
+    this.skeletonHelper.visible = false;
+    this.scene.add(this.skeletonHelper);
 
     // Setup Animation Mixer
     this.mixer = new THREE.AnimationMixer(model);
@@ -242,6 +248,16 @@ export class Avatar {
     return this.idleEnabled;
   }
 
+  public setSkeletonHelperVisible(visible: boolean): void {
+    if (this.skeletonHelper) {
+      this.skeletonHelper.visible = visible;
+    }
+  }
+
+  public isSkeletonHelperVisible(): boolean {
+    return this.skeletonHelper?.visible ?? false;
+  }
+
   public setMorphTarget(name: string, value: number): void {
     // Facial morphs are deferred per specification
     this.facialController.setMorph(name, value);
@@ -256,6 +272,11 @@ export class Avatar {
       if (this.isProceduralIdle) {
         this.updateProceduralIdle(delta);
       }
+    }
+
+    // Update skeleton visualization lines if active
+    if (this.skeletonHelper && this.skeletonHelper.visible) {
+      this.skeletonHelper.update();
     }
   }
 
