@@ -1,0 +1,19 @@
+{
+  "id": "you",
+  "version": 1,
+  "durationMs": 1150,
+  "timeline": [
+    {
+      "atMs": 0,
+      "type": "gesture",
+      "name": "gesture_you",
+      "durationMs": 800
+    },
+    {
+      "atMs": 800,
+      "type": "gesture",
+      "name": "return_neutral",
+      "durationMs": 350
+    }
+  ]
+}

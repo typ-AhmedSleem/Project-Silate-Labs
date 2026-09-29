@@ -1,0 +1,19 @@
+{
+  "id": "goodbye",
+  "version": 1,
+  "durationMs": 1300,
+  "timeline": [
+    {
+      "atMs": 0,
+      "type": "gesture",
+      "name": "gesture_goodbye",
+      "durationMs": 950
+    },
+    {
+      "atMs": 950,
+      "type": "gesture",
+      "name": "return_neutral",
+      "durationMs": 350
+    }
+  ]
+}

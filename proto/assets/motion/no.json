@@ -1,0 +1,19 @@
+{
+  "id": "no",
+  "version": 1,
+  "durationMs": 1150,
+  "timeline": [
+    {
+      "atMs": 0,
+      "type": "gesture",
+      "name": "gesture_no",
+      "durationMs": 850
+    },
+    {
+      "atMs": 850,
+      "type": "gesture",
+      "name": "return_neutral",
+      "durationMs": 300
+    }
+  ]
+}

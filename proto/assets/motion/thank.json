@@ -1,0 +1,19 @@
+{
+  "id": "thank",
+  "version": 1,
+  "durationMs": 1200,
+  "timeline": [
+    {
+      "atMs": 0,
+      "type": "gesture",
+      "name": "gesture_thank",
+      "durationMs": 850
+    },
+    {
+      "atMs": 850,
+      "type": "gesture",
+      "name": "return_neutral",
+      "durationMs": 350
+    }
+  ]
+}
