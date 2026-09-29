@@ -5,8 +5,8 @@ import { AvatarController } from './avatar/AvatarController.js';
 import { GestureLibrary } from './motion/GestureLibrary.js';
 import { PhraseTokenizer } from './translation/PhraseTokenizer.js';
 import { FileMotionRepository } from './motion/MotionRepository.js';
-import { MotionResolver } from './motion/MotionResolver.js';
-import { MotionSequence } from './motion/MotionSequence.js';
+import { MotionResolver, ResolvedMotion } from './motion/MotionResolver.js';
+import { MotionComposer } from './motion/MotionComposer.js';
 import { MotionExecutor } from './motion/MotionExecutor.js';
 import { appState } from './state/AppState.js';
 import { UI } from './ui/UI.js';
@@ -22,11 +22,14 @@ async function bootstrap() {
 
   // 1. Initialize UI & Debug Panel
   const ui = new UI();
-  ui.debugPanel.log('Initializing Project Silate Phase 3...', 'info');
+  ui.debugPanel.log('Initializing Project Silate Phase 4 (Multi-Word Pipeline)...', 'info');
 
   // 2. Initialize Translation Pipeline components
   const tokenizer = new PhraseTokenizer();
   const repository = new FileMotionRepository((msg, type) => {
+    ui.debugPanel.log(msg, type || 'info');
+  });
+  const composer = new MotionComposer(180, (msg, type) => {
     ui.debugPanel.log(msg, type || 'info');
   });
 
@@ -34,7 +37,7 @@ async function bootstrap() {
   appState.subscribe((state) => {
     ui.debugPanel.setAppState(state);
     if (state === 'PLAYING') {
-      ui.setStatus('Avatar performing motion...', 'ready');
+      ui.setStatus('Avatar performing motion sequence...', 'ready');
     } else if (state === 'IDLE') {
       ui.setStatus('Avatar Ready (Idle playing)', 'ready');
     } else if (state === 'ERROR') {
@@ -111,6 +114,16 @@ async function bootstrap() {
       });
 
       currentExecutor = new MotionExecutor(avatarController, {
+        onMotionStart: (motionId) => {
+          // If this is a transition segment (trans_word1_to_word2), show transition status
+          if (motionId.startsWith('trans_')) {
+            ui.debugPanel.setPipelineStatus({
+              execution: `Transition: ${motionId.replace(/^trans_/, '').replace('_to_', ' → ')}`
+            });
+          } else {
+            ui.debugPanel.updateActiveSequenceWord(motionId);
+          }
+        },
         onStepStart: (stepInfo, total, current) => {
           ui.debugPanel.setPipelineStatus({
             status: 'Playing',
@@ -118,6 +131,7 @@ async function bootstrap() {
           });
         },
         onComplete: () => {
+          ui.debugPanel.completeSequenceFlow();
           ui.debugPanel.setPipelineStatus({
             status: 'Completed',
             execution: 'Returned to IDLE'
@@ -146,6 +160,7 @@ async function bootstrap() {
         resolved: 'None',
         execution: 'Idle'
       });
+      ui.debugPanel.setSequenceFlow([]);
     } catch (err: any) {
       console.warn('Avatar model could not be loaded:', err.message);
       appState.setState('ERROR');
@@ -172,7 +187,7 @@ async function bootstrap() {
     }
   });
 
-  // 7. Wire gesture buttons
+  // 8. Wire gesture buttons (individual manual triggers)
   ui.debugPanel.onGestureTrigger(async (gestureName) => {
     if (!currentAvatarController) {
       ui.debugPanel.log('Cannot trigger gesture: Avatar model is not loaded yet.', 'warn');
@@ -203,7 +218,7 @@ async function bootstrap() {
     }
   });
 
-  // 8. Wire Translate button (Phase 3 Motion Pipeline)
+  // 9. Wire Translate button (Phase 4 Multi-Word Motion Pipeline)
   ui.onTranslate(async (phrase: string) => {
     if (!currentAvatarController || !currentResolver || !currentExecutor) {
       ui.debugPanel.log('Cannot translate: Avatar model is not loaded yet.', 'warn');
@@ -212,11 +227,12 @@ async function bootstrap() {
 
     ui.debugPanel.log(`═════════════ [Pipeline Start] "${phrase}" ═════════════`, 'info');
 
-    // 8.1. Tokenize
+    // 9.1. Tokenize (Task 3.3)
     const tokens = tokenizer.tokenize(phrase);
     if (tokens.length === 0) {
       ui.debugPanel.log('[Pipeline] Empty phrase after tokenization.', 'warn');
       ui.debugPanel.setPipelineStatus({ status: 'Empty input', execution: 'Aborted' });
+      ui.debugPanel.setSequenceFlow([]);
       return;
     }
 
@@ -225,43 +241,59 @@ async function bootstrap() {
       status: 'Tokenized',
       tokens,
       files: [],
-      resolved: 'Loading JSON...',
+      resolved: 'Loading JSON files...',
       execution: 'Waiting'
     });
 
-    // 8.2. Fetch Motion Definitions from Repository
-    const sequence = new MotionSequence(`seq_${tokens.join('_')}`);
+    // Initialize sequence flow visualizer chips
+    const chipItems: Array<{ word: string; status: 'pending' | 'active' | 'completed' | 'skipped' }> = tokens.map(
+      (t) => ({ word: t, status: 'pending' })
+    );
+    ui.debugPanel.setSequenceFlow(chipItems);
+
+    // 9.2. Fetch Motion Definitions & Resolve (Task 4.1 & Task 4.6)
+    const resolvedMotions: ResolvedMotion[] = [];
     const loadedFiles: string[] = [];
 
-    for (const token of tokens) {
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
       const def = await repository.getMotion(token);
+
       if (def) {
         loadedFiles.push(`${token}.json`);
-        // 8.3. Resolve Motion steps
         const resolved = currentResolver.resolve(def);
-        sequence.addMotion(resolved);
+        resolvedMotions.push(resolved);
       } else {
-        ui.debugPanel.log(`[Pipeline: Repository] ⚠️ No motion definition found for token "${token}"`, 'warn');
+        // Task 4.6: Unknown word handling — skip gracefully with warning
+        ui.debugPanel.log(`[Pipeline: Repository] ⚠️ Skipped unknown word "${token}" (no motion file found)`, 'warn');
+        chipItems[i].status = 'skipped';
+        ui.debugPanel.setSequenceFlow(chipItems);
       }
     }
 
     ui.debugPanel.setPipelineStatus({
-      files: loadedFiles,
-      resolved: `${sequence.getFlattenedSteps().length} steps (${sequence.getTotalDuration()}ms)`
+      files: loadedFiles
     });
 
-    if (sequence.isEmpty()) {
-      ui.debugPanel.log(`[Pipeline] No motion definitions found for phrase "${phrase}".`, 'warn');
-      ui.debugPanel.setPipelineStatus({ status: 'No Motions', execution: 'None found' });
+    if (resolvedMotions.length === 0) {
+      ui.debugPanel.log(`[Pipeline] ⚠️ No valid motion definitions found for phrase "${phrase}".`, 'warn');
+      ui.debugPanel.setPipelineStatus({ status: 'No Motions Found', execution: 'None available' });
       return;
     }
 
-    // 8.4. Execute Sequence
+    // 9.3. Compose sequence with smooth transition blending (Task 4.2 & 4.3)
+    const sequence = composer.compose(resolvedMotions, {
+      transitionDurationMs: 180,
+      sequenceId: `seq_${tokens.filter((_, idx) => chipItems[idx].status !== 'skipped').join('_')}`
+    });
+
     ui.debugPanel.setPipelineStatus({
+      resolved: `${sequence.getFlattenedSteps().length} steps (${sequence.getTotalDuration()}ms)`,
       status: 'Executing',
       execution: 'Starting playback...'
     });
 
+    // 9.4. Execute Sequence with automatic interruption handling (Task 4.4 & Task 4.5)
     await currentExecutor.execute(sequence);
   });
 
