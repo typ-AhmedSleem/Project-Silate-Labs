@@ -30,7 +30,7 @@ export class Avatar {
   private activeClipName: string | null = null;
   private isProceduralIdle: boolean = false;
   private proceduralIdleTime: number = 0;
-  private idleEnabled: boolean = true;
+  private idleEnabled: boolean = false;
 
   // Track initial rotations for procedural idle to avoid drifting
   private baseRotations: Map<string, THREE.Euler> = new Map();
