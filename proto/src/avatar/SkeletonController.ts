@@ -4,7 +4,7 @@ export class SkeletonController {
   private bonesMap: Map<string, THREE.Bone> = new Map();
   private aliasMap: Map<string, string> = new Map();
   private originalRotations: Map<string, THREE.Quaternion> = new Map();
-  private logger?: (msg: string, type?: 'info' | 'warn' | 'error') => void;
+  private logger?: (msg: string, type?: 'info' | 'success' | 'warn' | 'error') => void;
 
   // Canonical bone name aliases mapping common alternate names to standard names
   private static readonly ALIASES: Record<string, string[]> = {
@@ -24,7 +24,7 @@ export class SkeletonController {
     RightHand: ['righthand', 'rhand', 'hand_r'],
   };
 
-  constructor(model: THREE.Object3D, logger?: (msg: string, type?: 'info' | 'warn' | 'error') => void) {
+  constructor(model: THREE.Object3D, logger?: (msg: string, type?: 'info' | 'success' | 'warn' | 'error') => void) {
     this.logger = logger;
     this.indexBones(model);
   }

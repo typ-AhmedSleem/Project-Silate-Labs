@@ -11,6 +11,7 @@ export class UI {
   private translateBtn: HTMLButtonElement | null;
 
   private onRetryCallback?: () => void;
+  private onTranslateCallback?: (phrase: string) => void;
 
   constructor() {
     this.debugPanel = new DebugPanel();
@@ -39,7 +40,9 @@ export class UI {
         this.debugPanel.log('Please enter a phrase to translate', 'warn');
         return;
       }
-      this.debugPanel.log(`Translate clicked: "${phrase}" (Motion pipeline will activate in Phase 3)`, 'info');
+      if (this.onTranslateCallback) {
+        this.onTranslateCallback(phrase);
+      }
     });
 
     this.phraseInput?.addEventListener('keydown', (e) => {
@@ -47,6 +50,10 @@ export class UI {
         this.translateBtn?.click();
       }
     });
+  }
+
+  public onTranslate(callback: (phrase: string) => void): void {
+    this.onTranslateCallback = callback;
   }
 
   public onRetry(callback: () => void): void {

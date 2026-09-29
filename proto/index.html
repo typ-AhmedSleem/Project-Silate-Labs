@@ -138,6 +138,36 @@
             </div>
           </section>
 
+          <!-- Motion Pipeline Status (Phase 3) -->
+          <section class="debug-section">
+            <div class="section-title">
+              Motion Pipeline
+              <span class="badge" id="pipeline-status-badge">Standby</span>
+            </div>
+            <div class="pipeline-flow">
+              <div class="pipeline-step">
+                <span class="step-num">1</span>
+                <span class="step-name">Tokens:</span>
+                <span class="step-data" id="pipeline-tokens">None</span>
+              </div>
+              <div class="pipeline-step">
+                <span class="step-num">2</span>
+                <span class="step-name">Motion JSON:</span>
+                <span class="step-data" id="pipeline-files">None</span>
+              </div>
+              <div class="pipeline-step">
+                <span class="step-num">3</span>
+                <span class="step-name">Resolved:</span>
+                <span class="step-data" id="pipeline-resolved">None</span>
+              </div>
+              <div class="pipeline-step">
+                <span class="step-num">4</span>
+                <span class="step-name">Execution:</span>
+                <span class="step-data highlight" id="pipeline-execution">Idle</span>
+              </div>
+            </div>
+          </section>
+
           <!-- Animation Clips List -->
           <section class="debug-section">
             <div class="section-title">

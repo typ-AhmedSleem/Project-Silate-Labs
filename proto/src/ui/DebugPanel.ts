@@ -23,6 +23,13 @@ export class DebugPanel {
   private activeGestureBadgeEl: HTMLElement | null;
   private gestureButtons: NodeListOf<HTMLButtonElement>;
 
+  // Pipeline Inspector Elements
+  private pipelineStatusBadgeEl: HTMLElement | null;
+  private pipelineTokensEl: HTMLElement | null;
+  private pipelineFilesEl: HTMLElement | null;
+  private pipelineResolvedEl: HTMLElement | null;
+  private pipelineExecutionEl: HTMLElement | null;
+
   private isCollapsed: boolean = false;
   private onSpeedChangeCallback?: (speed: number) => void;
   private onGestureTriggerCallback?: (gesture: string) => void;
@@ -49,6 +56,12 @@ export class DebugPanel {
     this.speedValueEl = document.getElementById('speed-value');
     this.activeGestureBadgeEl = document.getElementById('active-gesture-badge');
     this.gestureButtons = document.querySelectorAll('.btn-gesture');
+
+    this.pipelineStatusBadgeEl = document.getElementById('pipeline-status-badge');
+    this.pipelineTokensEl = document.getElementById('pipeline-tokens');
+    this.pipelineFilesEl = document.getElementById('pipeline-files');
+    this.pipelineResolvedEl = document.getElementById('pipeline-resolved');
+    this.pipelineExecutionEl = document.getElementById('pipeline-execution');
 
     this.initEvents();
   }
@@ -107,6 +120,30 @@ export class DebugPanel {
         btn.classList.remove('active');
       }
     });
+  }
+
+  public setPipelineStatus(data: {
+    status?: string;
+    tokens?: string[];
+    files?: string[];
+    resolved?: string;
+    execution?: string;
+  }): void {
+    if (data.status && this.pipelineStatusBadgeEl) {
+      this.pipelineStatusBadgeEl.textContent = data.status;
+    }
+    if (data.tokens && this.pipelineTokensEl) {
+      this.pipelineTokensEl.textContent = data.tokens.length > 0 ? `[${data.tokens.join(', ')}]` : 'None';
+    }
+    if (data.files && this.pipelineFilesEl) {
+      this.pipelineFilesEl.textContent = data.files.length > 0 ? data.files.join(', ') : 'None';
+    }
+    if (data.resolved !== undefined && this.pipelineResolvedEl) {
+      this.pipelineResolvedEl.textContent = data.resolved;
+    }
+    if (data.execution !== undefined && this.pipelineExecutionEl) {
+      this.pipelineExecutionEl.textContent = data.execution;
+    }
   }
 
   public toggle(forceCollapse?: boolean): void {
