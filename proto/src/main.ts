@@ -161,6 +161,17 @@ async function bootstrap() {
     }
   });
 
+  // 7. Wire idle animation toggle
+  ui.debugPanel.onIdleToggle((enabled) => {
+    if (currentAvatar) {
+      currentAvatar.setIdleEnabled(enabled);
+      ui.debugPanel.log(
+        `Idle animation ${enabled ? 'enabled' : 'disabled (standing still)'}`,
+        enabled ? 'info' : 'warn'
+      );
+    }
+  });
+
   // 7. Wire gesture buttons
   ui.debugPanel.onGestureTrigger(async (gestureName) => {
     if (!currentAvatarController) {
