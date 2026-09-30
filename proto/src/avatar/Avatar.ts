@@ -332,7 +332,7 @@ export class Avatar {
 
   private buildBoneHierarchy(bone: THREE.Object3D): SkeletonTreeNode {
     const node: SkeletonTreeNode = {
-      name: bone.name,
+      name: bone.name.replace("mixamorig1", ""),
       type: (bone as THREE.Bone).isBone ? 'Bone' : 'Object3D',
       children: []
     };
