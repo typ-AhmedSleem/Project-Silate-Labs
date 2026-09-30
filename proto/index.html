@@ -108,10 +108,33 @@
             <div class="countdown-overlay hidden" id="capture-countdown">3</div>
           </div>
 
-          <div class="video-controls">
-            <button id="camera-toggle-btn" class="btn btn-secondary btn-full">
-              ▶ Start Camera & Model
+          <div class="video-controls action-btn-group">
+            <button id="camera-toggle-btn" class="btn btn-secondary">
+              📷 Start Camera
             </button>
+            <button id="video-load-btn" class="btn btn-secondary">
+              📂 Load Video
+            </button>
+            <input type="file" id="video-file-input" accept="video/*,.mp4,.webm,.mov" class="hidden" />
+          </div>
+
+          <!-- Video Playback Controls (Separate Section for loaded video file) -->
+          <div class="video-player-section hidden" id="video-player-section">
+            <div class="video-player-header">
+              <span class="video-player-title">🎬 Video Source</span>
+              <button id="video-unload-btn" class="icon-btn" title="Unload Video & Return to Camera">✕</button>
+            </div>
+            <div class="video-player-info">
+              <span class="video-filename" id="video-filename">No video loaded</span>
+              <span class="video-time" id="video-time">0:00 / 0:00</span>
+            </div>
+            <div class="video-slider-row">
+              <input type="range" id="video-progress-slider" min="0" max="100" value="0" step="0.05" class="slider" />
+            </div>
+            <div class="video-player-actions action-btn-group">
+              <button id="video-play-btn" class="btn btn-primary">▶ Play Video</button>
+              <button id="video-loop-btn" class="btn btn-secondary" title="Toggle Video Looping">🔁 Loop: Off</button>
+            </div>
           </div>
 
           <!-- Feature Tab Bar -->
