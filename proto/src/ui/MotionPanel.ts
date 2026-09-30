@@ -32,6 +32,7 @@ export class MotionPanel {
 
   // Play Controls
   private playLoadBtn: HTMLButtonElement | null;
+  private playFileInput: HTMLInputElement | null;
   private playInfoEl: HTMLElement | null;
   private playFramesCountEl: HTMLElement | null;
   private playProgressSlider: HTMLInputElement | null;
@@ -53,6 +54,7 @@ export class MotionPanel {
   private onPlayStopCb?: () => void;
   private onPlaySeekCb?: (frame: number) => void;
   private onPlaySpeedChangeCb?: (speed: number) => void;
+  private onPlayFileSelectedCb?: (file: File) => void;
 
   private isCollapsed: boolean = true;
   private countdownTimer: number | null = null;
@@ -85,6 +87,7 @@ export class MotionPanel {
     this.syncToggleBtn = document.getElementById('sync-toggle-btn') as HTMLButtonElement | null;
 
     this.playLoadBtn = document.getElementById('play-load-btn') as HTMLButtonElement | null;
+    this.playFileInput = document.getElementById('play-file-input') as HTMLInputElement | null;
     this.playInfoEl = document.getElementById('play-info');
     this.playFramesCountEl = document.getElementById('play-frames-count');
     this.playProgressSlider = document.getElementById('play-progress-slider') as HTMLInputElement | null;
@@ -142,7 +145,18 @@ export class MotionPanel {
 
     // Play controls
     this.playLoadBtn?.addEventListener('click', () => {
+      if (this.playFileInput) {
+        this.playFileInput.value = '';
+        this.playFileInput.click();
+      }
       this.onPlayLoadCb?.();
+    });
+
+    this.playFileInput?.addEventListener('change', () => {
+      const file = this.playFileInput?.files?.[0];
+      if (file) {
+        this.onPlayFileSelectedCb?.(file);
+      }
     });
 
     this.playStartBtn?.addEventListener('click', () => {
@@ -364,4 +378,5 @@ export class MotionPanel {
   public onPlayStop(cb: () => void): void { this.onPlayStopCb = cb; }
   public onPlaySeek(cb: (frame: number) => void): void { this.onPlaySeekCb = cb; }
   public onPlaySpeedChange(cb: (speed: number) => void): void { this.onPlaySpeedChangeCb = cb; }
+  public onPlayFileSelected(cb: (file: File) => void): void { this.onPlayFileSelectedCb = cb; }
 }
