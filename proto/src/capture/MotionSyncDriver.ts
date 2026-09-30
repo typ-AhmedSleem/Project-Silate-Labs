@@ -121,20 +121,69 @@ export class MotionSyncDriver {
 
     // 4. Hands & Fingers
     if (frame.right_hand) {
-      const curl = this.computeHandCurl(frame.right_hand);
-      if (curl > 0.6) {
-        this.controller.rotateBone('RightHand', { x: 15, y: -10, z: -25, isDegrees: true }, 40);
-      } else {
-        this.controller.rotateBone('RightHand', { x: 0, y: 5, z: 0, isDegrees: true }, 40);
-      }
+      this.applyHandFingers('Right', frame.right_hand);
     }
 
     if (frame.left_hand) {
-      const curl = this.computeHandCurl(frame.left_hand);
-      if (curl > 0.6) {
-        this.controller.rotateBone('LeftHand', { x: 15, y: 10, z: 25, isDegrees: true }, 40);
+      this.applyHandFingers('Left', frame.left_hand);
+    }
+  }
+
+  /**
+   * Applies individual finger bone bend angles to avatar skeleton fingers.
+   */
+  private applyHandFingers(side: 'Left' | 'Right', hand: { wrist: Vec3; fingers: { thumb: Vec3[]; index: Vec3[]; middle: Vec3[]; ring: Vec3[]; pinky: Vec3[] } }): void {
+    const isRight = side === 'Right';
+    const prefix = isRight ? 'RightHand' : 'LeftHand';
+
+    // Wrist orientation / rotation tilt
+    const curl = this.computeHandCurl(hand);
+    if (curl > 0.6) {
+      this.controller.rotateBone(`${side}Hand`, { x: 15, y: isRight ? -10 : 10, z: isRight ? -25 : 25, isDegrees: true }, 40);
+    } else {
+      this.controller.rotateBone(`${side}Hand`, { x: 0, y: isRight ? 5 : -5, z: 0, isDegrees: true }, 40);
+    }
+
+    // Finger joint bending
+    const fingerDefs: Array<{ name: string; joints: Vec3[] }> = [
+      { name: 'Thumb', joints: hand.fingers.thumb },
+      { name: 'Index', joints: hand.fingers.index },
+      { name: 'Middle', joints: hand.fingers.middle },
+      { name: 'Ring', joints: hand.fingers.ring },
+      { name: 'Pinky', joints: hand.fingers.pinky },
+    ];
+
+    for (const { name, joints } of fingerDefs) {
+      if (!joints || joints.length < 4) continue;
+
+      // Finger curl factor based on tip to wrist distance relative to extended finger length
+      const tip = joints[3];
+      const mcp = joints[0];
+      const dWristTip = Math.hypot(tip.x - hand.wrist.x, tip.y - hand.wrist.y, tip.z - hand.wrist.z);
+      const dMcpTip = Math.hypot(tip.x - mcp.x, tip.y - mcp.y, tip.z - mcp.z);
+
+      // Higher curlRatio when tip is curled close to MCP or wrist
+      let fingerCurl = 0;
+      if (name === 'Thumb') {
+        fingerCurl = Math.max(0, Math.min(1.0, (0.16 - dWristTip) / 0.08));
       } else {
-        this.controller.rotateBone('LeftHand', { x: 0, y: -5, z: 0, isDegrees: true }, 40);
+        fingerCurl = Math.max(0, Math.min(1.0, (0.18 - dMcpTip) / 0.10));
+      }
+
+      for (let j = 1; j <= 3; j++) {
+        const boneName = `${prefix}${name}${j}`;
+        if (name === 'Thumb') {
+          const bendX = -15 * fingerCurl;
+          const bendY = (isRight ? 15 : -15) * fingerCurl;
+          const bendZ = (isRight ? -35 : 35) * fingerCurl;
+          const smoothed = this.smooth(boneName, { x: bendX, y: bendY, z: bendZ });
+          this.controller.rotateBone(boneName, { ...smoothed, isDegrees: true }, 40);
+        } else {
+          const maxAngle = j === 1 ? 65 : j === 2 ? 75 : 60;
+          const angleX = maxAngle * fingerCurl;
+          const smoothed = this.smooth(boneName, { x: angleX, y: 0, z: 0 });
+          this.controller.rotateBone(boneName, { ...smoothed, isDegrees: true }, 40);
+        }
       }
     }
   }
