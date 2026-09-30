@@ -69,11 +69,124 @@
             <span class="status-dot"></span>
             <span id="status-text">Initializing...</span>
           </span>
+          <button id="motion-toggle-btn" class="btn btn-ghost" title="Toggle Motion Capture Panel">
+            🎬 Motion
+          </button>
           <button id="debug-toggle-btn" class="btn btn-ghost" title="Toggle Debug Panel">
             ⚙️ Debug Inspector
           </button>
         </div>
       </footer>
+
+      <!-- Collapsible Left Motion Panel -->
+      <aside id="motion-panel" class="motion-panel collapsed">
+        <div class="motion-header">
+          <h2>Motion Capture</h2>
+          <button id="motion-close-btn" class="icon-btn" title="Close Motion Panel">✕</button>
+        </div>
+
+        <div class="motion-content">
+          <!-- Status indicators -->
+          <div class="motion-indicators">
+            <span class="indicator-badge" id="camera-status-indicator">
+              <span class="indicator-dot red"></span>
+              <span class="indicator-label">Camera: Off</span>
+            </span>
+            <span class="indicator-badge" id="model-status-indicator">
+              <span class="indicator-dot red"></span>
+              <span class="indicator-label">Model: Off</span>
+            </span>
+            <span class="indicator-badge" id="model-latency-indicator">
+              <span class="indicator-label">⏱ -- ms</span>
+            </span>
+          </div>
+
+          <!-- Video preview container -->
+          <div class="video-preview-container" id="video-preview-container">
+            <video id="camera-video" autoplay playsinline muted></video>
+            <canvas id="landmark-canvas"></canvas>
+            <div class="countdown-overlay hidden" id="capture-countdown">3</div>
+          </div>
+
+          <div class="video-controls">
+            <button id="camera-toggle-btn" class="btn btn-secondary btn-full">
+              ▶ Start Camera & Model
+            </button>
+          </div>
+
+          <!-- Feature Tab Bar -->
+          <div class="motion-tabs">
+            <button class="motion-tab active" data-tab="capture">MotionCap</button>
+            <button class="motion-tab" data-tab="sync">MotionSync</button>
+            <button class="motion-tab" data-tab="play">MotionPlay</button>
+          </div>
+
+          <!-- MotionCap Tab -->
+          <div class="motion-tab-content active" id="tab-capture">
+            <div class="stat-card">
+              <div class="stat-item">
+                <span class="stat-label">Capture State:</span>
+                <span class="stat-value" id="capture-status">⏹ Idle</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Captured Frames:</span>
+                <span class="stat-value" id="captured-frames-count">0</span>
+              </div>
+            </div>
+            <div class="action-btn-group">
+              <button id="capture-start-btn" class="btn btn-primary" disabled>⏺ Start</button>
+              <button id="capture-stop-btn" class="btn btn-secondary" disabled>⏹ Stop</button>
+              <button id="capture-save-btn" class="btn btn-secondary" disabled>💾 Save</button>
+            </div>
+            <div class="field-group">
+              <label for="capture-save-path">Save Path:</label>
+              <input type="text" id="capture-save-path" class="text-input" value="/assets/motions/captured" />
+            </div>
+          </div>
+
+          <!-- MotionSync Tab -->
+          <div class="motion-tab-content" id="tab-sync">
+            <div class="stat-card">
+              <div class="stat-item">
+                <span class="stat-label">Sync State:</span>
+                <span class="stat-value" id="sync-status">⏹ Inactive</span>
+              </div>
+            </div>
+            <button id="sync-toggle-btn" class="btn btn-primary btn-full" disabled>▶ Start Sync</button>
+          </div>
+
+          <!-- MotionPlay Tab -->
+          <div class="motion-tab-content" id="tab-play">
+            <button id="play-load-btn" class="btn btn-secondary btn-full">📂 Load Motion JSON</button>
+            <div class="play-info hidden" id="play-info">
+              <div class="stat-card">
+                <div class="stat-item">
+                  <span class="stat-label">Total Frames:</span>
+                  <span class="stat-value" id="play-frames-count">0</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <div class="slider-header">
+                  <label for="play-progress-slider">Frame</label>
+                  <span id="play-current-frame">0 / 0</span>
+                </div>
+                <input type="range" id="play-progress-slider" min="0" max="0" value="0" class="slider" />
+              </div>
+            </div>
+            <div class="play-speed-container">
+              <div class="slider-header">
+                <label for="play-speed-slider">Playback Speed</label>
+                <span id="play-speed-value">1.0×</span>
+              </div>
+              <input type="range" id="play-speed-slider" min="0.1" max="3.0" step="0.1" value="1.0" class="slider" />
+            </div>
+            <div class="play-controls-group hidden" id="play-controls-group">
+              <button id="play-start-btn" class="btn btn-primary">▶ Play</button>
+              <button id="play-stop-btn" class="btn btn-secondary">⏹ Stop & Reset</button>
+            </div>
+          </div>
+        </div>
+      </aside>
 
       <!-- Collapsible Side Debug Panel -->
       <aside id="debug-panel" class="debug-panel">
