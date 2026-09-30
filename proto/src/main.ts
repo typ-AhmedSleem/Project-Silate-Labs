@@ -423,31 +423,7 @@ async function bootstrap() {
         landmarkRenderer = new LandmarkRenderer(motionPanel.canvasEl);
 
         ui.debugPanel.log('Camera running & Holistic model initialized successfully', 'success');
-
-        const runInference = () => {
-          if (cameraController?.isRunning() && landmarkerService?.isReady()) {
-            const video = cameraController.getVideo();
-            const result = landmarkerService.detectFrame(video, performance.now());
-            if (result) {
-              landmarkRenderer?.draw(result, video.videoWidth || 640, video.videoHeight || 480);
-              motionPanel.setLatency(landmarkerService.getLatency());
-
-              const frame = LandmarkExtractor.extract(result, performance.now());
-
-              if (captureSession && captureSession.isRecording()) {
-                captureSession.addFrame(frame);
-                motionPanel.setCapturedFramesCount(captureSession.getFrameCount());
-              }
-
-              if (syncDriver && syncDriver.isActive()) {
-                syncDriver.applyFrame(frame);
-              }
-            }
-          }
-          inferenceLoopId = requestAnimationFrame(runInference);
-        };
-
-        inferenceLoopId = requestAnimationFrame(runInference);
+        startInferenceLoop();
       } catch (err: any) {
         motionPanel.setCameraStatus(false);
         motionPanel.setModelStatus('error');
@@ -456,6 +432,40 @@ async function bootstrap() {
       }
     }
   });
+
+  // Shared inference loop — works for both camera and video file source
+  const startInferenceLoop = () => {
+    if (inferenceLoopId !== null) return;
+
+    const runInference = () => {
+      const videoReady = motionPanel.isVideoFileMode()
+        ? (motionPanel.videoEl.readyState >= 2 && !motionPanel.videoEl.paused)
+        : cameraController?.isRunning();
+
+      if (videoReady && landmarkerService?.isReady()) {
+        const video = motionPanel.videoEl;
+        const result = landmarkerService.detectFrame(video, performance.now());
+        if (result) {
+          landmarkRenderer?.draw(result, video.videoWidth || 640, video.videoHeight || 480);
+          motionPanel.setLatency(landmarkerService.getLatency());
+
+          const frame = LandmarkExtractor.extract(result, performance.now());
+
+          if (captureSession && captureSession.isRecording()) {
+            captureSession.addFrame(frame);
+            motionPanel.setCapturedFramesCount(captureSession.getFrameCount());
+          }
+
+          if (syncDriver && syncDriver.isActive()) {
+            syncDriver.applyFrame(frame);
+          }
+        }
+      }
+      inferenceLoopId = requestAnimationFrame(runInference);
+    };
+
+    inferenceLoopId = requestAnimationFrame(runInference);
+  };
 
   motionPanel.onCaptureStart(async () => {
     if (!landmarkerService?.isReady()) {
@@ -641,6 +651,37 @@ async function bootstrap() {
 
   motionPanel.onPlaySpeedChange((speed) => {
     playbackEngine?.setSpeed(speed);
+  });
+
+  // Wire Video File source — auto-init landmarker if needed and start inference
+  motionPanel.onVideoFileLoaded(async (file: File) => {
+    ui.debugPanel.log(`🎬 Video file loaded: "${file.name}" (${(file.size / 1024 / 1024).toFixed(2)} MB)`, 'info');
+
+    // Auto-init landmarker + renderer if not already
+    if (!landmarkerService?.isReady()) {
+      try {
+        motionPanel.setModelStatus('loading');
+        landmarkerService = new HolisticLandmarkerService();
+        await landmarkerService.initialize('/ai/holistic_landmarker.task', 'GPU');
+        motionPanel.setModelStatus('ready');
+        landmarkRenderer = new LandmarkRenderer(motionPanel.canvasEl);
+        ui.debugPanel.log('Holistic model auto-initialized for video file', 'success');
+      } catch (err: any) {
+        motionPanel.setModelStatus('error');
+        ui.showToast(`Failed to init model: ${err.message}`, 'error');
+        ui.debugPanel.log(`Model init error: ${err.message}`, 'error');
+        return;
+      }
+    }
+
+    startInferenceLoop();
+    ui.showToast(`Video "${file.name}" loaded — press Play to run inference`, 'success');
+  });
+
+  motionPanel.onVideoUnload(() => {
+    landmarkRenderer?.clear();
+    motionPanel.setLatency(0);
+    ui.debugPanel.log('Video file unloaded, returned to camera source', 'info');
   });
 
   // Initial load
