@@ -32,6 +32,7 @@ export class Avatar {
   private isProceduralIdle: boolean = false;
   private proceduralIdleTime: number = 0;
   private idleEnabled: boolean = true;
+  private _idleSuppressed: boolean = false;
 
   // Track initial rotations for procedural idle to avoid drifting
   private baseRotations: Map<string, THREE.Euler> = new Map();
@@ -248,6 +249,26 @@ export class Avatar {
     return this.idleEnabled;
   }
 
+  /**
+   * Temporarily stops IDLE for motion execution. Preserves idleEnabled preference.
+   */
+  public stopIdle(): void {
+    if (this.activeAction) {
+      this.activeAction.paused = true;
+    }
+    this._idleSuppressed = true;
+  }
+
+  /**
+   * Resumes IDLE after motion execution, only if idleEnabled is true.
+   */
+  public resumeIdle(): void {
+    this._idleSuppressed = false;
+    if (this.idleEnabled && this.activeAction) {
+      this.activeAction.paused = false;
+    }
+  }
+
   public setSkeletonHelperVisible(visible: boolean): void {
     if (this.skeletonHelper) {
       this.skeletonHelper.visible = visible;
@@ -264,7 +285,7 @@ export class Avatar {
   }
 
   public update(delta: number): void {
-    if (this.idleEnabled) {
+    if (this.idleEnabled && !this._idleSuppressed) {
       if (this.mixer) {
         this.mixer.update(delta);
       }
