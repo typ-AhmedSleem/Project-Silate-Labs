@@ -43,6 +43,20 @@ export class MotionPanel {
   private playStartBtn: HTMLButtonElement | null;
   private playStopBtn: HTMLButtonElement | null;
 
+  // Video File Player Controls
+  private videoFileInput: HTMLInputElement | null;
+  private videoLoadBtn: HTMLButtonElement | null;
+  private videoPlayerSection: HTMLElement | null;
+  private videoPreviewContainer: HTMLElement | null;
+  private videoUnloadBtn: HTMLButtonElement | null;
+  private videoFilenameEl: HTMLElement | null;
+  private videoTimeEl: HTMLElement | null;
+  private videoProgressSlider: HTMLInputElement | null;
+  private videoPlayBtn: HTMLButtonElement | null;
+  private videoLoopBtn: HTMLButtonElement | null;
+  private videoObjectUrl: string | null = null;
+  private videoTimeUpdateHandler: (() => void) | null = null;
+
   // Callbacks
   private onCameraToggleCb?: () => void;
   private onCaptureStartCb?: () => void;
@@ -55,6 +69,8 @@ export class MotionPanel {
   private onPlaySeekCb?: (frame: number) => void;
   private onPlaySpeedChangeCb?: (speed: number) => void;
   private onPlayFileSelectedCb?: (file: File) => void;
+  private onVideoFileLoadedCb?: (file: File) => void;
+  private onVideoUnloadCb?: () => void;
 
   private isCollapsed: boolean = true;
   private countdownTimer: number | null = null;
@@ -97,6 +113,18 @@ export class MotionPanel {
     this.playControlsGroup = document.getElementById('play-controls-group');
     this.playStartBtn = document.getElementById('play-start-btn') as HTMLButtonElement | null;
     this.playStopBtn = document.getElementById('play-stop-btn') as HTMLButtonElement | null;
+
+    // Video File Player
+    this.videoFileInput = document.getElementById('video-file-input') as HTMLInputElement | null;
+    this.videoLoadBtn = document.getElementById('video-load-btn') as HTMLButtonElement | null;
+    this.videoPlayerSection = document.getElementById('video-player-section');
+    this.videoPreviewContainer = document.getElementById('video-preview-container');
+    this.videoUnloadBtn = document.getElementById('video-unload-btn') as HTMLButtonElement | null;
+    this.videoFilenameEl = document.getElementById('video-filename');
+    this.videoTimeEl = document.getElementById('video-time');
+    this.videoProgressSlider = document.getElementById('video-progress-slider') as HTMLInputElement | null;
+    this.videoPlayBtn = document.getElementById('video-play-btn') as HTMLButtonElement | null;
+    this.videoLoopBtn = document.getElementById('video-loop-btn') as HTMLButtonElement | null;
 
     this.initEvents();
   }
@@ -178,6 +206,47 @@ export class MotionPanel {
         this.playSpeedValue.textContent = `${speed.toFixed(1)}×`;
       }
       this.onPlaySpeedChangeCb?.(speed);
+    });
+
+    // Video File Player events
+    this.videoLoadBtn?.addEventListener('click', () => {
+      if (this.videoFileInput) {
+        this.videoFileInput.value = '';
+        this.videoFileInput.click();
+      }
+    });
+
+    this.videoFileInput?.addEventListener('change', () => {
+      const file = this.videoFileInput?.files?.[0];
+      if (file) this.loadVideoFile(file);
+    });
+
+    this.videoUnloadBtn?.addEventListener('click', () => {
+      this.unloadVideo();
+      this.onVideoUnloadCb?.();
+    });
+
+    this.videoPlayBtn?.addEventListener('click', () => {
+      if (this.videoEl.paused) {
+        this.videoEl.play();
+        this.videoPlayBtn!.textContent = '⏸ Pause Video';
+      } else {
+        this.videoEl.pause();
+        this.videoPlayBtn!.textContent = '▶ Play Video';
+      }
+    });
+
+    this.videoLoopBtn?.addEventListener('click', () => {
+      this.videoEl.loop = !this.videoEl.loop;
+      this.videoLoopBtn!.textContent = `🔁 Loop: ${this.videoEl.loop ? 'On' : 'Off'}`;
+      this.videoLoopBtn!.classList.toggle('active', this.videoEl.loop);
+    });
+
+    this.videoProgressSlider?.addEventListener('input', (e) => {
+      const val = parseFloat((e.target as HTMLInputElement).value);
+      if (isFinite(this.videoEl.duration)) {
+        this.videoEl.currentTime = val;
+      }
     });
   }
 
@@ -367,6 +436,87 @@ export class MotionPanel {
     }
   }
 
+  // Video file management
+  private loadVideoFile(file: File): void {
+    this.unloadVideo();
+
+    this.videoObjectUrl = URL.createObjectURL(file);
+    this.videoEl.srcObject = null; // detach camera stream
+    this.videoEl.src = this.videoObjectUrl;
+    this.videoEl.muted = true;
+    this.videoEl.playsInline = true;
+
+    // Un-mirror for file playback
+    this.videoPreviewContainer?.classList.add('video-file-mode');
+
+    if (this.videoFilenameEl) this.videoFilenameEl.textContent = file.name;
+    this.videoPlayerSection?.classList.remove('hidden');
+
+    // Wait for metadata to set slider range
+    this.videoEl.onloadedmetadata = () => {
+      if (this.videoProgressSlider && isFinite(this.videoEl.duration)) {
+        this.videoProgressSlider.max = this.videoEl.duration.toString();
+        this.videoProgressSlider.value = '0';
+      }
+      this.updateVideoTime();
+    };
+
+    // Track time updates
+    this.videoTimeUpdateHandler = () => this.updateVideoTime();
+    this.videoEl.addEventListener('timeupdate', this.videoTimeUpdateHandler);
+
+    this.videoEl.addEventListener('ended', () => {
+      if (this.videoPlayBtn) this.videoPlayBtn.textContent = '▶ Play Video';
+    }, { once: false });
+
+    this.onVideoFileLoadedCb?.(file);
+  }
+
+  public unloadVideo(): void {
+    if (this.videoTimeUpdateHandler) {
+      this.videoEl.removeEventListener('timeupdate', this.videoTimeUpdateHandler);
+      this.videoTimeUpdateHandler = null;
+    }
+    this.videoEl.pause();
+    if (this.videoObjectUrl) {
+      URL.revokeObjectURL(this.videoObjectUrl);
+      this.videoObjectUrl = null;
+    }
+    this.videoEl.removeAttribute('src');
+    this.videoEl.srcObject = null;
+    this.videoPreviewContainer?.classList.remove('video-file-mode');
+    this.videoPlayerSection?.classList.add('hidden');
+    if (this.videoPlayBtn) this.videoPlayBtn.textContent = '▶ Play Video';
+    if (this.videoFilenameEl) this.videoFilenameEl.textContent = 'No video loaded';
+    if (this.videoTimeEl) this.videoTimeEl.textContent = '0:00 / 0:00';
+    if (this.videoProgressSlider) {
+      this.videoProgressSlider.max = '100';
+      this.videoProgressSlider.value = '0';
+    }
+  }
+
+  private updateVideoTime(): void {
+    const cur = this.videoEl.currentTime || 0;
+    const dur = this.videoEl.duration || 0;
+    if (this.videoTimeEl) {
+      this.videoTimeEl.textContent = `${this.fmtTime(cur)} / ${this.fmtTime(dur)}`;
+    }
+    if (this.videoProgressSlider && isFinite(dur)) {
+      this.videoProgressSlider.value = cur.toString();
+    }
+  }
+
+  private fmtTime(s: number): string {
+    if (!isFinite(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  }
+
+  public isVideoFileMode(): boolean {
+    return this.videoObjectUrl !== null;
+  }
+
   // Callback bindings
   public onCameraToggle(cb: () => void): void { this.onCameraToggleCb = cb; }
   public onCaptureStart(cb: () => void): void { this.onCaptureStartCb = cb; }
@@ -379,4 +529,6 @@ export class MotionPanel {
   public onPlaySeek(cb: (frame: number) => void): void { this.onPlaySeekCb = cb; }
   public onPlaySpeedChange(cb: (speed: number) => void): void { this.onPlaySpeedChangeCb = cb; }
   public onPlayFileSelected(cb: (file: File) => void): void { this.onPlayFileSelectedCb = cb; }
+  public onVideoFileLoaded(cb: (file: File) => void): void { this.onVideoFileLoadedCb = cb; }
+  public onVideoUnload(cb: () => void): void { this.onVideoUnloadCb = cb; }
 }
