@@ -152,7 +152,7 @@ export class Avatar {
 
       if (idleClip) {
         const action = this.mixer.clipAction(idleClip);
-        action.setLoop(THREE.LoopRepeat, Infinity);
+        action.setLoop(THREE.LoopPingPong, Infinity);
         action.play();
         this.activeAction = action;
         this.activeClipName = idleClip.name;
