@@ -4,3 +4,4 @@ node_modules/
 dist/
 *.glb
 package-lock.json
+proto/assets/motion/captured
