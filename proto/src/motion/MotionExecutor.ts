@@ -70,6 +70,7 @@ export class MotionExecutor {
     this.isPaused = false;
     const executionId = ++this.currentExecutionId;
 
+    this.controller.avatar.stopIdle();
     appState.setState('PLAYING');
     this.callbacks.onStateChange?.('playing');
 
@@ -140,6 +141,7 @@ export class MotionExecutor {
       if (this.currentExecutionId === executionId) {
         // Smoothly blend back to idle
         await this.controller.returnToNeutral(300);
+        this.controller.avatar.resumeIdle();
         this.callbacks.onLog?.(`[MotionExecutor] Finished sequence "${sequence.id}" → IDLE`, 'success');
         this.callbacks.onProgress?.({
           elapsedMs: totalDurationMs,
@@ -156,9 +158,11 @@ export class MotionExecutor {
         return true;
       }
 
+      this.controller.avatar.resumeIdle();
       return false;
     } catch (err: any) {
       this.callbacks.onLog?.(`[MotionExecutor] Error during execution: ${err.message}`, 'error');
+      this.controller.avatar.resumeIdle();
       appState.setState('ERROR');
       this.callbacks.onStateChange?.('stopped');
       this.isRunning = false;
@@ -175,6 +179,7 @@ export class MotionExecutor {
       this.isPaused = false;
       this.currentExecutionId++;
       this.controller.returnToNeutral(180);
+      this.controller.avatar.resumeIdle();
       appState.setState('IDLE');
       this.callbacks.onStateChange?.('stopped');
       this.callbacks.onLog?.('[MotionExecutor] Motion stopped by user.', 'info');
