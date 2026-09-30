@@ -1218,7 +1218,144 @@ details.debug-section.flex-grow[open] .section-body {
   flex: 1;
 }
 
+/* ─── Skeleton Panel ─── */
+.skeleton-panel {
+  position: absolute;
+  top: 0;
+  right: 340px; /* offset for debug panel */
+  width: 320px;
+  height: calc(100vh - 65px);
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-color);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  z-index: 14;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+}
 
+.skeleton-panel.collapsed {
+  transform: translateX(120%);
+}
 
+.skeleton-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+}
 
+.skeleton-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.skeleton-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skel-group-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--accent);
+  padding: 8px 0 4px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+  margin-top: 4px;
+}
+
+.skel-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 0;
+}
+
+.skel-bone-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.skel-inputs {
+  display: flex;
+  gap: 6px;
+}
+
+.skel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.skel-field-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+}
+
+.skel-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.skel-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-cyan, #38bdf8);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  letter-spacing: 0.5px;
+}
+
+.skel-field-input {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  background: rgba(13, 17, 23, 0.7);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.skel-field-input.editable {
+  cursor: text;
+}
+
+.skel-field-input:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(22, 27, 34, 0.85);
+}
+
+.skel-field-input:focus {
+  border-color: var(--accent);
+  background: rgba(22, 27, 34, 0.95);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
 

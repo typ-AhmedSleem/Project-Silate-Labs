@@ -18,6 +18,7 @@ import { LandmarkRenderer } from './capture/LandmarkRenderer.js';
 import { MotionCaptureSession } from './capture/MotionCaptureSession.js';
 import { MotionSyncDriver } from './capture/MotionSyncDriver.js';
 import { MotionPlaybackEngine } from './capture/MotionPlaybackEngine.js';
+import { SkeletonPanel } from './ui/SkeletonPanel.js';
 
 async function bootstrap() {
   const canvas = document.getElementById('webgl-canvas') as HTMLCanvasElement;
@@ -57,6 +58,10 @@ async function bootstrap() {
   const sceneManager = new SceneManager(canvas, viewportContainer);
   sceneManager.start();
   ui.debugPanel.log('Three.js scene and OrbitControls initialized', 'success');
+
+  // Skeleton Panel component
+  const skeletonPanel = new SkeletonPanel();
+  sceneManager.registerUpdatable(skeletonPanel);
 
   // 5. Track runtime controllers
   let currentAvatar: Avatar | null = null;
@@ -171,6 +176,9 @@ async function bootstrap() {
       // Register both in order: Avatar mixer (base) -> AvatarController (overlay)
       sceneManager.registerUpdatable(avatar);
       sceneManager.registerUpdatable(avatarController);
+
+      // Provide live skeleton controller to skeleton panel
+      skeletonPanel.setSkeletonController(skeletonController);
 
       ui.hideOverlay();
       appState.setState('IDLE');
