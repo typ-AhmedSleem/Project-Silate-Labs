@@ -256,6 +256,7 @@ async function bootstrap() {
     }
 
     try {
+      currentAvatar?.stopIdle();
       appState.setState('PLAYING');
       ui.debugPanel.setActiveGesture(gestureName);
       ui.debugPanel.log(`▶ Triggering gesture: ${gestureName}`, 'info');
@@ -270,6 +271,7 @@ async function bootstrap() {
     } catch (err: any) {
       ui.debugPanel.log(`Error executing gesture: ${err.message}`, 'error');
     } finally {
+      currentAvatar?.resumeIdle();
       appState.setState('IDLE');
       ui.debugPanel.setActiveGesture('Idle');
     }
