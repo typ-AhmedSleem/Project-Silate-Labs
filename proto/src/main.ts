@@ -10,6 +10,12 @@ import { MotionComposer } from './motion/MotionComposer.js';
 import { MotionExecutor } from './motion/MotionExecutor.js';
 import { appState } from './state/AppState.js';
 import { UI } from './ui/UI.js';
+import { MotionPanel } from './ui/MotionPanel.js';
+import { CameraController } from './capture/CameraController.js';
+import { HolisticLandmarkerService } from './capture/HolisticLandmarkerService.js';
+import { LandmarkExtractor } from './capture/LandmarkExtractor.js';
+import { LandmarkRenderer } from './capture/LandmarkRenderer.js';
+import { MotionCaptureSession } from './capture/MotionCaptureSession.js';
 
 async function bootstrap() {
   const canvas = document.getElementById('webgl-canvas') as HTMLCanvasElement;
@@ -371,6 +377,121 @@ async function bootstrap() {
 
   ui.onRetry(() => {
     loadAvatarModel();
+  });
+
+  // 12. Initialize Motion Capture System (Phase 2: MotionCapture Feature)
+  const motionPanel = new MotionPanel();
+  let cameraController: CameraController | null = null;
+  let landmarkerService: HolisticLandmarkerService | null = null;
+  let landmarkRenderer: LandmarkRenderer | null = null;
+  let captureSession: MotionCaptureSession | null = null;
+  let inferenceLoopId: number | null = null;
+
+  motionPanel.onCameraToggle(async () => {
+    if (cameraController && cameraController.isRunning()) {
+      if (inferenceLoopId !== null) {
+        cancelAnimationFrame(inferenceLoopId);
+        inferenceLoopId = null;
+      }
+      cameraController.stop();
+      landmarkRenderer?.clear();
+      landmarkerService?.dispose();
+      motionPanel.setCameraStatus(false);
+      motionPanel.setModelStatus('off');
+      motionPanel.setLatency(0);
+      ui.debugPanel.log('Camera and Holistic model stopped', 'info');
+    } else {
+      try {
+        motionPanel.setModelStatus('loading');
+        ui.debugPanel.log('Starting camera and loading MediaPipe Holistic model...', 'info');
+
+        cameraController = new CameraController(motionPanel.videoEl);
+        await cameraController.start();
+        motionPanel.setCameraStatus(true);
+
+        landmarkerService = new HolisticLandmarkerService();
+        await landmarkerService.initialize('/ai/holistic_landmarker.task', 'GPU');
+        motionPanel.setModelStatus('ready');
+        landmarkRenderer = new LandmarkRenderer(motionPanel.canvasEl);
+
+        ui.debugPanel.log('Camera running & Holistic model initialized successfully', 'success');
+
+        const runInference = () => {
+          if (cameraController?.isRunning() && landmarkerService?.isReady()) {
+            const video = cameraController.getVideo();
+            const result = landmarkerService.detectFrame(video, performance.now());
+            if (result) {
+              landmarkRenderer?.draw(result, video.videoWidth || 640, video.videoHeight || 480);
+              motionPanel.setLatency(landmarkerService.getLatency());
+
+              if (captureSession && captureSession.isRecording()) {
+                const frame = LandmarkExtractor.extract(result, performance.now());
+                captureSession.addFrame(frame);
+                motionPanel.setCapturedFramesCount(captureSession.getFrameCount());
+              }
+            }
+          }
+          inferenceLoopId = requestAnimationFrame(runInference);
+        };
+
+        inferenceLoopId = requestAnimationFrame(runInference);
+      } catch (err: any) {
+        motionPanel.setCameraStatus(false);
+        motionPanel.setModelStatus('error');
+        ui.showToast(err.message || 'Failed to start camera/model', 'error');
+        ui.debugPanel.log(`Camera/Model Error: ${err.message}`, 'error');
+      }
+    }
+  });
+
+  motionPanel.onCaptureStart(async () => {
+    if (!landmarkerService?.isReady()) {
+      ui.showToast('Please start camera and model first', 'warn');
+      return;
+    }
+
+    motionPanel.setCaptureState('countdown');
+    ui.debugPanel.log('Starting 3s capture countdown...', 'info');
+    await motionPanel.showCountdown(3);
+
+    captureSession = new MotionCaptureSession();
+    captureSession.start();
+    motionPanel.setCaptureState('recording');
+    motionPanel.setCapturedFramesCount(0);
+    motionPanel.setSaveEnabled(false);
+    ui.debugPanel.log('⏺ MotionCapture recording started', 'info');
+  });
+
+  motionPanel.onCaptureStop(() => {
+    if (captureSession && captureSession.isRecording()) {
+      captureSession.stop();
+      const count = captureSession.getFrameCount();
+      motionPanel.setCaptureState('idle');
+      motionPanel.setSaveEnabled(count > 0);
+      ui.debugPanel.log(`⏹ MotionCapture stopped. Total frames: ${count}`, 'success');
+    }
+  });
+
+  motionPanel.onCaptureSave((suggestedPath) => {
+    if (!captureSession || captureSession.getFrameCount() === 0) {
+      ui.showToast('No motion frames captured to save', 'warn');
+      return;
+    }
+
+    const jsonStr = captureSession.toJSON();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = `captured_motion_${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    ui.showToast(`Saved ${captureSession.getFrameCount()} frames`, 'success');
+    ui.debugPanel.log(`💾 Saved motion to ${a.download} (Target path: ${suggestedPath})`, 'success');
   });
 
   // Initial load
