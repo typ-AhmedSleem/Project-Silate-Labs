@@ -33,7 +33,6 @@ export class SkeletonController {
     model.traverse((child) => {
       if ((child as THREE.Bone).isBone) {
         const bone = child as THREE.Bone;
-        this.logger?.("Bone: " + bone.name.replace("mixamorig1", ""));
         this.bonesMap.set(bone.name, bone);
         this.originalRotations.set(bone.name, bone.quaternion.clone());
 
