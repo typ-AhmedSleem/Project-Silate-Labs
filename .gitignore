@@ -6,3 +6,5 @@ dist/
 package-lock.json
 proto/assets/motion/captured
 MediaPipeLandmarker/
+.vscode/
+.venv/
