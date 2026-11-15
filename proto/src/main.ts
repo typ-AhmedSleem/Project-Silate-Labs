@@ -10,6 +10,15 @@ import { MotionComposer } from './motion/MotionComposer.js';
 import { MotionExecutor } from './motion/MotionExecutor.js';
 import { appState } from './state/AppState.js';
 import { UI } from './ui/UI.js';
+import { MotionPanel } from './ui/MotionPanel.js';
+import { CameraController } from './capture/CameraController.js';
+import { HolisticLandmarkerService } from './capture/HolisticLandmarkerService.js';
+import { LandmarkExtractor, CapturedFrame } from './capture/LandmarkExtractor.js';
+import { LandmarkRenderer } from './capture/LandmarkRenderer.js';
+import { MotionCaptureSession } from './capture/MotionCaptureSession.js';
+import { MotionSyncDriver } from './capture/MotionSyncDriver.js';
+import { MotionPlaybackEngine } from './capture/MotionPlaybackEngine.js';
+import { SkeletonPanel } from './ui/SkeletonPanel.js';
 
 async function bootstrap() {
   const canvas = document.getElementById('webgl-canvas') as HTMLCanvasElement;
@@ -49,6 +58,10 @@ async function bootstrap() {
   const sceneManager = new SceneManager(canvas, viewportContainer);
   sceneManager.start();
   ui.debugPanel.log('Three.js scene and OrbitControls initialized', 'success');
+
+  // Skeleton Panel component
+  const skeletonPanel = new SkeletonPanel();
+  sceneManager.registerUpdatable(skeletonPanel);
 
   // 5. Track runtime controllers
   let currentAvatar: Avatar | null = null;
@@ -164,6 +177,9 @@ async function bootstrap() {
       sceneManager.registerUpdatable(avatar);
       sceneManager.registerUpdatable(avatarController);
 
+      // Provide live skeleton controller to skeleton panel
+      skeletonPanel.setSkeletonController(skeletonController);
+
       ui.hideOverlay();
       appState.setState('IDLE');
       ui.setStatus(`Avatar Ready (${data.activeClip || 'Idle'})`, 'ready');
@@ -256,6 +272,7 @@ async function bootstrap() {
     }
 
     try {
+      currentAvatar?.stopIdle();
       appState.setState('PLAYING');
       ui.debugPanel.setActiveGesture(gestureName);
       ui.debugPanel.log(`▶ Triggering gesture: ${gestureName}`, 'info');
@@ -270,6 +287,7 @@ async function bootstrap() {
     } catch (err: any) {
       ui.debugPanel.log(`Error executing gesture: ${err.message}`, 'error');
     } finally {
+      currentAvatar?.resumeIdle();
       appState.setState('IDLE');
       ui.debugPanel.setActiveGesture('Idle');
     }
@@ -369,6 +387,309 @@ async function bootstrap() {
 
   ui.onRetry(() => {
     loadAvatarModel();
+  });
+
+  // 12. Initialize Motion Capture System (Phase 2 & Phase 3)
+  const motionPanel = new MotionPanel();
+  let cameraController: CameraController | null = null;
+  let landmarkerService: HolisticLandmarkerService | null = null;
+  let landmarkRenderer: LandmarkRenderer | null = null;
+  let captureSession: MotionCaptureSession | null = null;
+  let syncDriver: MotionSyncDriver | null = null;
+  let playbackEngine: MotionPlaybackEngine | null = null;
+  let inferenceLoopId: number | null = null;
+
+  motionPanel.onCameraToggle(async () => {
+    if (cameraController && cameraController.isRunning()) {
+      if (inferenceLoopId !== null) {
+        cancelAnimationFrame(inferenceLoopId);
+        inferenceLoopId = null;
+      }
+      if (syncDriver?.isActive()) {
+        await syncDriver.stop();
+        motionPanel.setSyncState(false);
+      }
+      cameraController.stop();
+      landmarkRenderer?.clear();
+      landmarkerService?.dispose();
+      motionPanel.setCameraStatus(false);
+      motionPanel.setModelStatus('off');
+      motionPanel.setLatency(0);
+      ui.debugPanel.log('Camera and Holistic model stopped', 'info');
+    } else {
+      try {
+        motionPanel.setModelStatus('loading');
+        ui.debugPanel.log('Starting camera and loading MediaPipe Holistic model...', 'info');
+
+        cameraController = new CameraController(motionPanel.videoEl);
+        await cameraController.start();
+        motionPanel.setCameraStatus(true);
+
+        landmarkerService = new HolisticLandmarkerService();
+        await landmarkerService.initialize('/ai/holistic_landmarker.task', 'GPU');
+        motionPanel.setModelStatus('ready');
+        landmarkRenderer = new LandmarkRenderer(motionPanel.canvasEl);
+
+        ui.debugPanel.log('Camera running & Holistic model initialized successfully', 'success');
+        startInferenceLoop();
+      } catch (err: any) {
+        motionPanel.setCameraStatus(false);
+        motionPanel.setModelStatus('error');
+        ui.showToast(err.message || 'Failed to start camera/model', 'error');
+        ui.debugPanel.log(`Camera/Model Error: ${err.message}`, 'error');
+      }
+    }
+  });
+
+  // Shared inference loop — works for both camera and video file source
+  const startInferenceLoop = () => {
+    if (inferenceLoopId !== null) return;
+
+    const runInference = () => {
+      const videoReady = motionPanel.isVideoFileMode()
+        ? (motionPanel.videoEl.readyState >= 2 && !motionPanel.videoEl.paused)
+        : cameraController?.isRunning();
+
+      if (videoReady && landmarkerService?.isReady()) {
+        const video = motionPanel.videoEl;
+        const result = landmarkerService.detectFrame(video, performance.now());
+        if (result) {
+          landmarkRenderer?.draw(result, video.videoWidth || 640, video.videoHeight || 480);
+          motionPanel.setLatency(landmarkerService.getLatency());
+
+          const frame = LandmarkExtractor.extract(result, performance.now());
+
+          if (captureSession && captureSession.isRecording()) {
+            captureSession.addFrame(frame);
+            motionPanel.setCapturedFramesCount(captureSession.getFrameCount());
+          }
+
+          if (syncDriver && syncDriver.isActive()) {
+            syncDriver.applyFrame(frame);
+          }
+        }
+      }
+      inferenceLoopId = requestAnimationFrame(runInference);
+    };
+
+    inferenceLoopId = requestAnimationFrame(runInference);
+  };
+
+  motionPanel.onCaptureStart(async () => {
+    if (!landmarkerService?.isReady()) {
+      ui.showToast('Please start camera and model first', 'warn');
+      return;
+    }
+
+    motionPanel.setCaptureState('countdown');
+    ui.debugPanel.log('Starting 3s capture countdown...', 'info');
+    await motionPanel.showCountdown(3);
+
+    captureSession = new MotionCaptureSession();
+    captureSession.start();
+    motionPanel.setCaptureState('recording');
+    motionPanel.setCapturedFramesCount(0);
+    motionPanel.setSaveEnabled(false);
+    ui.debugPanel.log('⏺ MotionCapture recording started', 'info');
+  });
+
+  motionPanel.onCaptureStop(() => {
+    if (captureSession && captureSession.isRecording()) {
+      captureSession.stop();
+      const count = captureSession.getFrameCount();
+      motionPanel.setCaptureState('idle');
+      motionPanel.setSaveEnabled(count > 0);
+      ui.debugPanel.log(`⏹ MotionCapture stopped. Total frames: ${count}`, 'success');
+    }
+  });
+
+  motionPanel.onCaptureSave((suggestedPath) => {
+    if (!captureSession || captureSession.getFrameCount() === 0) {
+      ui.showToast('No motion frames captured to save', 'warn');
+      return;
+    }
+
+    const jsonStr = captureSession.toJSON();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = `captured_motion_${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    ui.showToast(`Saved ${captureSession.getFrameCount()} frames`, 'success');
+    ui.debugPanel.log(`💾 Saved motion to ${a.download} (Target path: ${suggestedPath})`, 'success');
+  });
+
+  // Wire MotionSync toggle
+  motionPanel.onSyncToggle(async () => {
+    if (!currentAvatarController) {
+      ui.showToast('Avatar model is not loaded yet', 'warn');
+      return;
+    }
+
+    if (!landmarkerService?.isReady()) {
+      ui.showToast('Please start camera and model first', 'warn');
+      return;
+    }
+
+    if (playbackEngine?.isPlaying()) {
+      await playbackEngine.stop();
+      motionPanel.setPlayState('idle');
+    }
+
+    if (!syncDriver) {
+      syncDriver = new MotionSyncDriver(currentAvatarController);
+    }
+
+    if (syncDriver.isActive()) {
+      await syncDriver.stop();
+      motionPanel.setSyncState(false);
+      ui.debugPanel.log('⏹ MotionSync stopped', 'info');
+    } else {
+      syncDriver.start();
+      motionPanel.setSyncState(true);
+      ui.debugPanel.log('▶ MotionSync active — mirroring movements in realtime', 'success');
+    }
+  });
+
+  // Wire MotionPlay controls
+  const setupPlaybackListeners = (engine: MotionPlaybackEngine) => {
+    engine.onProgress((current, total) => {
+      motionPanel.setPlayProgress(current, total);
+    });
+    engine.onStateChange((state) => {
+      motionPanel.setPlayState(state);
+    });
+  };
+
+  motionPanel.onPlayFileSelected(async (file: File) => {
+    ui.debugPanel.log(`📂 Selected file: "${file.name}" (${(file.size / 1024).toFixed(1)} KB)`, 'info');
+
+    if (!currentAvatarController) {
+      ui.showToast('Avatar model is not loaded yet', 'warn');
+      ui.debugPanel.log('Cannot load motion: Avatar model is not loaded yet.', 'warn');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      let frames: CapturedFrame[] = [];
+
+      if (Array.isArray(parsed)) {
+        frames = parsed;
+      } else if (parsed.frames && Array.isArray(parsed.frames)) {
+        frames = parsed.frames;
+      } else if (parsed.channels || parsed.steps) {
+        // Pipeline MotionDefinition format (e.g. hello.json, welcome.json)
+        if (currentResolver && currentExecutor) {
+          const word = parsed.id || file.name.replace(/\.json$/i, '');
+          parsed.id = word;
+          ui.debugPanel.log(`Recognized pipeline motion definition for "${word}". Executing via pipeline...`, 'info');
+          const resolved = currentResolver.resolve(parsed);
+          const sequence = composer.compose([resolved]);
+          motionPanel.setMotionData(sequence.getFlattenedSteps().length);
+          ui.showToast(`Playing pipeline definition "${word}" (${sequence.getTotalDuration()}ms)`, 'success');
+          await currentExecutor.execute(sequence);
+          return;
+        }
+      } else {
+        ui.showToast('Unrecognized motion file format', 'error');
+        ui.debugPanel.log('Invalid motion JSON format: expected array of frames or definition object', 'error');
+        return;
+      }
+
+      if (frames.length === 0) {
+        ui.showToast('Motion file contains 0 frames', 'warn');
+        ui.debugPanel.log('Motion file has 0 frames', 'warn');
+        return;
+      }
+
+      if (!playbackEngine) {
+        playbackEngine = new MotionPlaybackEngine(currentAvatarController);
+        setupPlaybackListeners(playbackEngine);
+      }
+
+      playbackEngine.loadFrames(frames);
+      motionPanel.setMotionData(frames.length);
+      ui.showToast(`Loaded ${frames.length} motion frames from ${file.name}`, 'success');
+      ui.debugPanel.log(`📂 Successfully loaded motion file "${file.name}" (${frames.length} frames)`, 'success');
+    } catch (err: any) {
+      ui.showToast(`Failed to parse JSON: ${err.message}`, 'error');
+      ui.debugPanel.log(`JSON load error: ${err.message}`, 'error');
+    }
+  });
+
+  motionPanel.onPlayStart(() => {
+    if (!playbackEngine || playbackEngine.getFrameCount() === 0) {
+      ui.showToast('No motion loaded. Please load a JSON file first.', 'warn');
+      return;
+    }
+
+    if (syncDriver?.isActive()) {
+      syncDriver.stop();
+      motionPanel.setSyncState(false);
+    }
+
+    if (playbackEngine.isPlaying()) {
+      playbackEngine.pause();
+      ui.debugPanel.log('⏸ MotionPlay paused', 'info');
+    } else {
+      playbackEngine.play();
+      ui.debugPanel.log('▶ MotionPlay started', 'info');
+    }
+  });
+
+  motionPanel.onPlayStop(async () => {
+    if (playbackEngine) {
+      await playbackEngine.stop();
+      ui.debugPanel.log('⏹ MotionPlay stopped & reset to start', 'info');
+    }
+  });
+
+  motionPanel.onPlaySeek((frameIdx) => {
+    playbackEngine?.seekTo(frameIdx);
+  });
+
+  motionPanel.onPlaySpeedChange((speed) => {
+    playbackEngine?.setSpeed(speed);
+  });
+
+  // Wire Video File source — auto-init landmarker if needed and start inference
+  motionPanel.onVideoFileLoaded(async (file: File) => {
+    ui.debugPanel.log(`🎬 Video file loaded: "${file.name}" (${(file.size / 1024 / 1024).toFixed(2)} MB)`, 'info');
+
+    // Auto-init landmarker + renderer if not already
+    if (!landmarkerService?.isReady()) {
+      try {
+        motionPanel.setModelStatus('loading');
+        landmarkerService = new HolisticLandmarkerService();
+        await landmarkerService.initialize('/ai/holistic_landmarker.task', 'GPU');
+        motionPanel.setModelStatus('ready');
+        landmarkRenderer = new LandmarkRenderer(motionPanel.canvasEl);
+        ui.debugPanel.log('Holistic model auto-initialized for video file', 'success');
+      } catch (err: any) {
+        motionPanel.setModelStatus('error');
+        ui.showToast(`Failed to init model: ${err.message}`, 'error');
+        ui.debugPanel.log(`Model init error: ${err.message}`, 'error');
+        return;
+      }
+    }
+
+    startInferenceLoop();
+    ui.showToast(`Video "${file.name}" loaded — press Play to run inference`, 'success');
+  });
+
+  motionPanel.onVideoUnload(() => {
+    landmarkRenderer?.clear();
+    motionPanel.setLatency(0);
+    ui.debugPanel.log('Video file unloaded, returned to camera source', 'info');
   });
 
   // Initial load
