@@ -4,3 +4,7 @@ node_modules/
 dist/
 *.glb
 package-lock.json
+proto/assets/motion/captured
+MediaPipeLandmarker/
+.vscode/
+.venv/

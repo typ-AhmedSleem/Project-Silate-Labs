@@ -58,6 +58,7 @@ export class SkeletonController {
   private normalizeName(name: string): string {
     // Strip common prefixes: "mixamorig:", "mixamorig", "Armature_"
     return name
+      .replace("mixamorig1", "")
       .replace(/^mixamorig[:_]?/i, '')
       .replace(/^armature[:_]?/i, '')
       .replace(/^bip01[:_]?/i, '');

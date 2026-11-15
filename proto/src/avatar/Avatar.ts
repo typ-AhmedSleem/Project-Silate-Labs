@@ -19,6 +19,7 @@ export interface AvatarLoadResult {
 export class Avatar {
   public model?: THREE.Group;
   public mixer?: THREE.AnimationMixer;
+  public skeletonHelper?: THREE.SkeletonHelper;
   public readonly facialController: FacialController;
 
   private scene: THREE.Scene;
@@ -30,7 +31,8 @@ export class Avatar {
   private activeClipName: string | null = null;
   private isProceduralIdle: boolean = false;
   private proceduralIdleTime: number = 0;
-  private idleEnabled: boolean = false;
+  private idleEnabled: boolean = true;
+  private _idleSuppressed: boolean = false;
 
   // Track initial rotations for procedural idle to avoid drifting
   private baseRotations: Map<string, THREE.Euler> = new Map();
@@ -106,6 +108,11 @@ export class Avatar {
     // Add model to scene
     this.scene.add(model);
 
+    // Setup SkeletonHelper for debug visualization (Task 6.2)
+    this.skeletonHelper = new THREE.SkeletonHelper(model);
+    this.skeletonHelper.visible = false;
+    this.scene.add(this.skeletonHelper);
+
     // Setup Animation Mixer
     this.mixer = new THREE.AnimationMixer(model);
 
@@ -145,7 +152,7 @@ export class Avatar {
 
       if (idleClip) {
         const action = this.mixer.clipAction(idleClip);
-        action.setLoop(THREE.LoopRepeat, Infinity);
+        action.setLoop(THREE.LoopPingPong, Infinity);
         action.play();
         this.activeAction = action;
         this.activeClipName = idleClip.name;
@@ -242,13 +249,43 @@ export class Avatar {
     return this.idleEnabled;
   }
 
+  /**
+   * Temporarily stops IDLE for motion execution. Preserves idleEnabled preference.
+   */
+  public stopIdle(): void {
+    if (this.activeAction) {
+      this.activeAction.paused = true;
+    }
+    this._idleSuppressed = true;
+  }
+
+  /**
+   * Resumes IDLE after motion execution, only if idleEnabled is true.
+   */
+  public resumeIdle(): void {
+    this._idleSuppressed = false;
+    if (this.idleEnabled && this.activeAction) {
+      this.activeAction.paused = false;
+    }
+  }
+
+  public setSkeletonHelperVisible(visible: boolean): void {
+    if (this.skeletonHelper) {
+      this.skeletonHelper.visible = visible;
+    }
+  }
+
+  public isSkeletonHelperVisible(): boolean {
+    return this.skeletonHelper?.visible ?? false;
+  }
+
   public setMorphTarget(name: string, value: number): void {
     // Facial morphs are deferred per specification
     this.facialController.setMorph(name, value);
   }
 
   public update(delta: number): void {
-    if (this.idleEnabled) {
+    if (this.idleEnabled && !this._idleSuppressed) {
       if (this.mixer) {
         this.mixer.update(delta);
       }
@@ -256,6 +293,11 @@ export class Avatar {
       if (this.isProceduralIdle) {
         this.updateProceduralIdle(delta);
       }
+    }
+
+    // Update skeleton visualization lines if active
+    if (this.skeletonHelper && this.skeletonHelper.visible) {
+      this.skeletonHelper.update();
     }
   }
 
@@ -311,7 +353,7 @@ export class Avatar {
 
   private buildBoneHierarchy(bone: THREE.Object3D): SkeletonTreeNode {
     const node: SkeletonTreeNode = {
-      name: bone.name,
+      name: bone.name.replace("mixamorig1", ""),
       type: (bone as THREE.Bone).isBone ? 'Bone' : 'Object3D',
       children: []
     };

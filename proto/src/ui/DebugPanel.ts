@@ -23,9 +23,10 @@ export class DebugPanel {
   private activeGestureBadgeEl: HTMLElement | null;
   private gestureButtons: NodeListOf<HTMLButtonElement>;
 
-  // Idle Animation Toggle Switch
+  // Idle & Skeleton Animation Switches
   private idleToggleEl: HTMLInputElement | null;
   private idleBadgeEl: HTMLElement | null;
+  private skeletonOverlayToggleEl: HTMLInputElement | null;
 
   // Pipeline Inspector Elements
   private pipelineStatusBadgeEl: HTMLElement | null;
@@ -33,12 +34,14 @@ export class DebugPanel {
   private pipelineFilesEl: HTMLElement | null;
   private pipelineResolvedEl: HTMLElement | null;
   private pipelineExecutionEl: HTMLElement | null;
+  private pipelineProgressEl: HTMLElement | null;
   private pipelineSequenceFlowEl: HTMLElement | null;
 
   private isCollapsed: boolean = false;
   private onSpeedChangeCallback?: (speed: number) => void;
   private onGestureTriggerCallback?: (gesture: string) => void;
   private onIdleToggleCallback?: (enabled: boolean) => void;
+  private onSkeletonToggleCallback?: (enabled: boolean) => void;
 
   constructor() {
     this.panel = document.getElementById('debug-panel') as HTMLElement;
@@ -65,12 +68,14 @@ export class DebugPanel {
 
     this.idleToggleEl = document.getElementById('idle-animation-toggle') as HTMLInputElement;
     this.idleBadgeEl = document.getElementById('idle-badge');
+    this.skeletonOverlayToggleEl = document.getElementById('skeleton-overlay-toggle') as HTMLInputElement;
 
     this.pipelineStatusBadgeEl = document.getElementById('pipeline-status-badge');
     this.pipelineTokensEl = document.getElementById('pipeline-tokens');
     this.pipelineFilesEl = document.getElementById('pipeline-files');
     this.pipelineResolvedEl = document.getElementById('pipeline-resolved');
     this.pipelineExecutionEl = document.getElementById('pipeline-execution');
+    this.pipelineProgressEl = document.getElementById('pipeline-progress');
     this.pipelineSequenceFlowEl = document.getElementById('pipeline-sequence-flow');
 
     this.initEvents();
@@ -94,6 +99,14 @@ export class DebugPanel {
       this.setIdleBadge(enabled);
       if (this.onIdleToggleCallback) {
         this.onIdleToggleCallback(enabled);
+      }
+    });
+
+    // Skeleton overlay toggle listener (Task 6.2)
+    this.skeletonOverlayToggleEl?.addEventListener('change', () => {
+      const enabled = this.skeletonOverlayToggleEl?.checked ?? false;
+      if (this.onSkeletonToggleCallback) {
+        this.onSkeletonToggleCallback(enabled);
       }
     });
 
@@ -129,6 +142,24 @@ export class DebugPanel {
 
   public onIdleToggle(callback: (enabled: boolean) => void): void {
     this.onIdleToggleCallback = callback;
+  }
+
+  public onSkeletonToggle(callback: (enabled: boolean) => void): void {
+    this.onSkeletonToggleCallback = callback;
+  }
+
+  public setSkeletonToggleState(enabled: boolean): void {
+    if (this.skeletonOverlayToggleEl) {
+      this.skeletonOverlayToggleEl.checked = enabled;
+    }
+  }
+
+  public setPipelineProgress(elapsedMs: number, totalDurationMs: number): void {
+    if (!this.pipelineProgressEl) return;
+    const elapsedSec = (elapsedMs / 1000).toFixed(1);
+    const totalSec = (totalDurationMs / 1000).toFixed(1);
+    const percent = totalDurationMs > 0 ? Math.min(100, Math.round((elapsedMs / totalDurationMs) * 100)) : 0;
+    this.pipelineProgressEl.textContent = `${elapsedSec}s / ${totalSec}s (${percent}%)`;
   }
 
   public setIdleBadge(enabled: boolean): void {
